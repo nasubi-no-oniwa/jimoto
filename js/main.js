@@ -111,14 +111,20 @@
   // ---------- 検索 ----------
   let pickFor = 0;
   function openPicker(i) {
-    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」';
+    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」「広島県 安芸郡」';
     setTimeout(() => $('pk-q').focus(), 50);
   }
   function runSearch() {
     const q = $('pk-q').value, res = D.search(q, 120, st.cls === 'all' ? null : st.cls), ul = $('pk-list');
     if (!q.trim()) { ul.innerHTML = ''; return; }
-    if (!res.length) { ul.innerHTML = '<li>見つかりませんでした</li>'; return; }
-    ul.innerHTML = res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${esc(e.n)}</span><span class="kn">${esc(e.k)}${e.c ? '・' + esc(e.c) : ''}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
+    if (!res.length) {
+      // 階級でしぼっているせいで見つからないときは、そう伝える
+      const all = st.cls !== 'all' ? D.search(q, 1, null).length : 0;
+      ul.innerHTML = all ? `<li class="pk-note">「${esc(JM.CLS[st.cls].n)}」にはありません。上で「全体の部」にすると出てきます（${D.lastCount}件）</li>` : '<li class="pk-note">見つかりませんでした。漢字・ひらがなのどちらでも、空白で区切って「広島県 安芸郡」のようにしぼれます</li>';
+      return;
+    }
+    const more = D.lastCount > res.length ? `<li class="pk-note">${D.lastCount}件見つかりました。多いので最初の${res.length}件だけ出しています。空白で区切って言葉を足すと、しぼれます</li>` : '';
+    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${e.c ? '<small>' + esc(e.c) + '</small> ' : ''}${esc(e.n)}</span><span class="kn">${esc(e.k)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
   }
   // ---------- 試合 ----------
   function defOf(i) {
@@ -309,7 +315,7 @@
   // ---------- だれかと対戦（ランダム対戦） ----------
   function setupQM() {
     QM.setup({
-      game: 'jimoto', ver: 'v1', name: '地元の最強',
+      game: 'jimoto', ver: 'v2', name: '地元の最強',
       getDb: () => JM.getDb(), anchor: '#btn-online', anchorWhere: 'before', btnClass: 'btn big hot', nextClass: 'btn', nameKey: 'jm_name',
       join: (code, name) => { S().unlock && S().unlock(); JM.Net.join(name, code); },
       cpu: () => JM.Chal.open(true), cpuLabel: '挑戦状と戦いながら待つ',

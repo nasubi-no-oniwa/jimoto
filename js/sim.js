@@ -130,6 +130,7 @@
   JM.makeFragments = makeFragments;
   // ---------- 市町村の体 ----------
   JM.HPA = 80; JM.DMG = 0.08;
+  JM.CASTLE_MAX = 0.22;              // 城下町保存：割れない中心部の広さの上限（全体に対して）
   const WORLD_AREA = 10.2;           // ならした面積（半径 1.8 の円くらい）
   class Body {
     constructor(def, side) {
@@ -153,7 +154,12 @@
       for (const f of this.frags) { f.hp = f.a * JM.HPA * this.hpk; f.max = f.hp; f.alive = true; f.core = false; }
       this.p = new Set(def.pol || []);
       // 城下町保存：真ん中の欠片は割れない
-      if (this.p.has('castle')) { const sorted = this.frags.map((f, i) => [f.cx * f.cx + f.cy * f.cy, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]); for (let k = 0; k < Math.max(2, Math.round(this.frags.length * 0.26)); k++) this.frags[sorted[k][1]].core = true; }
+      // ※割れない部分は「面積で全体の22%まで」。欠片の数で決めると、形によっては割れない部分が35%をこえて、絶対に負けなくなってしまう
+      if (this.p.has('castle')) {
+        const sorted = this.frags.map((f, i) => [f.cx * f.cx + f.cy * f.cy, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        let core = 0; const cap = A * JM.CASTLE_MAX;
+        for (const [, i] of sorted) { const f = this.frags[i]; if (core + f.a > cap) continue; f.core = true; core += f.a; }
+      }
       this.x = 0; this.y = 0; this.a = 0; this.vx = 0; this.vy = 0; this.w = 0; this.c = 1; this.s = 0;
       this.mode = 0; this.modeT = 0; this.hits = 0; this.shield = this.p.has('drill') ? 1 : 0; this.first = this.p.has('shinkansen');
       this.mass(); this.alive = A;

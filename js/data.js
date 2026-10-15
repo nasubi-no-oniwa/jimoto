@@ -19,15 +19,23 @@
       const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
       e.full = e.pn + ' ' + e.n;
-      e.key = norm(e.pn + e.n + (e.c || '') + (e.al || '')); e.kk = norm(e.k);
+      // 探す文字：「県＋名前」「県＋郡＋名前」「郡＋名前」「別名」のどの書き方でも見つかるように
+      e.key = norm([e.pn + e.n, e.pn + (e.c || '') + e.n, (e.c || '') + e.n, e.al || ''].join('|')); e.kk = norm(e.k); e.nn = norm(e.n);
+      e.hay = e.key + '|' + e.kk + '|' + (PK[e.p - 1] || '');
       D.list.push(e); D.byId.set(e.id, e);
     }
     D.ready = true;
   };
-  // ひらがな・カタカナ・全角半角をそろえる
+  // 都道府県の読み（「ひろしま ふちゅう」のように、ひらがなで県もしぼれるように）
+  const PK = ['ほっかいどう', 'あおもりけん', 'いわてけん', 'みやぎけん', 'あきたけん', 'やまがたけん', 'ふくしまけん', 'いばらきけん', 'とちぎけん', 'ぐんまけん', 'さいたまけん', 'ちばけん', 'とうきょうと', 'かながわけん', 'にいがたけん', 'とやまけん', 'いしかわけん', 'ふくいけん', 'やまなしけん', 'ながのけん', 'ぎふけん', 'しずおかけん', 'あいちけん', 'みえけん', 'しがけん', 'きょうとふ', 'おおさかふ', 'ひょうごけん', 'ならけん', 'わかやまけん', 'とっとりけん', 'しまねけん', 'おかやまけん', 'ひろしまけん', 'やまぐちけん', 'とくしまけん', 'かがわけん', 'えひめけん', 'こうちけん', 'ふくおかけん', 'さがけん', 'ながさきけん', 'くまもとけん', 'おおいたけん', 'みやざきけん', 'かごしまけん', 'おきなわけん'];
+  // 書き方のちがう字（旧字・異体字）をそろえる。名前の側と、入力の側の両方にかける
+  const VAR = { '龍': '竜', '澤': '沢', '濱': '浜', '邊': '辺', '邉': '辺', '嶋': '島', '嶌': '島', '齋': '斎', '齊': '斎', '櫻': '桜', '曾': '曽', '舘': '館', '冨': '富', '槇': '槙', '廣': '広', '國': '国', '縣': '県', '眞': '真', '德': '徳', '實': '実', '藏': '蔵', '惠': '恵', '淺': '浅', '關': '関', '條': '条', '與': '与', '壽': '寿', '萬': '万', '彌': '弥', '亞': '亜', '會': '会', '豐': '豊', '靜': '静', '驛': '駅', '鐵': '鉄', '髙': '高', '﨑': '崎', '嵜': '崎', '埼': '埼', '塚': '塚', '桒': '桑', '檜': '桧', '莊': '荘', '峯': '峰', '岡': '岡', '鷗': '鴎', '蘆': '芦', '葛': '葛', '寶': '宝', '黑': '黒', '淸': '清', '來': '来', '隆': '隆' };
+  const VAR_RE = new RegExp('[' + Object.keys(VAR).join('') + ']', 'g');
+  // ひらがな・カタカナ・全角半角・旧字をそろえる。「ヶ」「ケ」「ヵ」も同じにする
   function norm(s) {
-    s = String(s || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
-    return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/ヶ/g, 'ケ');
+    s = String(s || '').normalize('NFKC').toLowerCase().replace(/[\s・･]+/g, '');
+    s = s.replace(VAR_RE, c => VAR[c]).replace(/[ヶヵ]/g, c => (c === 'ヶ' ? 'ケ' : 'カ'));
+    return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/ゖ/g, 'け').replace(/ゕ/g, 'か');
   }
   D.norm = norm;
   // 合併先をたどって「今は〇〇」を出す
@@ -47,20 +55,22 @@
     return { cur: false, txt };
   };
   D.years = e => (e.f ? e.f + '年' : '') + '〜' + (e.t ? e.t.slice(0, 4) + '年' : '');
+  // 検索：空白で区切った言葉が、ぜんぶ入っているものを出す（「広島県 安芸郡」「北海道 村」「ひろしま ふちゅう」など）
   D.search = function (q, max = 80, cls) {
-    const n = norm(q); if (!n) return [];
+    const toks = String(q || '').normalize('NFKC').split(/[\s　]+/).map(norm).filter(Boolean);
+    if (!toks.length) return [];
     const out = [];
     for (const e of D.list) {
       if (cls && !JM.inClass(cls, e.pop)) continue;
-      let sc = -1;
-      const nn = norm(e.n);
-      if (nn === n || e.kk === n) sc = 0;
-      else if (nn.startsWith(n) || e.kk.startsWith(n)) sc = 1;
-      else if (e.key.includes(n) || e.kk.includes(n)) sc = 2;
-      if (sc < 0) continue;
+      let ok = true; for (const t of toks) if (!e.hay.includes(t)) { ok = false; break; }
+      if (!ok) continue;
+      // 名前そのものに当たったものを上に
+      let sc = 2;
+      for (const t of toks) { if (e.nn === t || e.kk === t) { sc = 0; break; } if (e.nn.startsWith(t) || e.kk.startsWith(t)) sc = Math.min(sc, 1); }
       out.push([sc, e.t ? 1 : 0, e.p, e.i, e]);
     }
     out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+    D.lastCount = out.length;
     return out.slice(0, max).map(x => x[4]);
   };
   D.random = function (cls) { const L = cls && cls !== 'all' ? D.list.filter(e => JM.inClass(cls, e.pop)) : D.list; return L[Math.floor(Math.random() * L.length)]; };
