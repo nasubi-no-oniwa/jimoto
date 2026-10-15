@@ -39,9 +39,11 @@
       <button class="btn big hot" id="btn-play">好きな2つを戦わせる</button>
       <button class="btn big blue" id="btn-online">あいことば対戦</button>
       <div class="row">
+        <button class="btn" id="btn-chal">挑戦状と戦う</button>
         <button class="btn" id="btn-howto">あそびかた</button>
         <button class="btn" id="btn-snd">音：<span id="snd-name">あり</span></button>
       </div>
+      <p class="chal-mine" id="chal-mine"></p>
     </div>
     <p class="loading" id="loading">市町村を読みこみ中…</p>
   </div>
@@ -105,6 +107,7 @@
       <button class="btn" id="btn-replay">もう一度見る</button>
       <button class="btn" id="btn-change">組み合わせを変える</button>
     </div>
+    <div class="row" id="chal-row"><button class="btn" id="btn-chal-put">挑戦状を置く</button><button class="btn hot" id="btn-chal-next">べつの挑戦状と戦う</button></div>
     <p class="note" id="res-note"></p>
   </div>
 </div>
@@ -136,6 +139,8 @@
       <li><b>政策カードで味付け（3枚まで）。</b>予算は10。人口が少ない市町村には<b>交付金</b>がつき、予算が増えます（5千人未満＋10、2万人未満＋6、5万人未満＋3）。</li>
       <li><b>はっけよい！</b>あとは全自動。ぶつかるたびに割れて欠けていき、先に65％を失った方の負け。60秒たったら残りが多い方の勝ちです。もとの能力がずっと下の方が勝つと<b>「下剋上！」</b></li>
       <li><b>同じ組み合わせ・同じ向き・同じ政策なら、いつでも必ず同じ結果</b>になります。いろいろ試して、最強の地元を見つけてください。</li>
+      <li><b>だれかと対戦</b>：待っている人と自動でつながります（全体の部・政策ありで勝負）。相手がいないときは、挑戦状と戦いながら待てます。毎晩21時〜22時は対戦タイム！</li>
+      <li><b>挑戦状</b>：試合のあとに「挑戦状を置く」と、あなたの市町村・向き・政策が挑戦状になります。「挑戦状と戦う」で、だれかの挑戦状といつでも勝負。挑戦状には成績がつき、タイトル画面で見られます。</li>
     </ol>
     <h3>強さの決まり方</h3>
     <p class="note">体力＝面積、勢い＝人口、速さ＝人口密度、かたさ＝形のまとまり、鋭さ＝形のトゲ。1980年より前になくなった町村の人口は、まわりの人口密度から出した<b>推定</b>です。読みがなにも推定のものがあります。</p>
@@ -154,6 +159,8 @@
 <script src="js/render.js"></script>
 <script src="js/sound.js"></script>
 <script src="js/online.js"></script>
+<script src="js/qm.js"></script>
+<script src="js/chal.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

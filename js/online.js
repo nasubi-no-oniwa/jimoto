@@ -26,7 +26,7 @@
   let R = null;   // 今の部屋
   const st = () => JM.st;
   class Room {
-    constructor(db, code, name) { this.db = db; this.code = clean(code); this.name = (String(name || '').trim().slice(0, 8)) || 'ななし'; this.id = uid(); this.slot = -1; this.watching = false; this.players = {}; this.subs = []; this.ms = []; this.game = null; this.sel = {}; this.left = false; this.root = db.ref('jimoto/' + this.code); }
+    constructor(db, code, name) { this.db = db; this.code = clean(code); this.name = (window.QM ? QM.ng(name) : String(name || '').trim().slice(0, 8)) || 'ななし'; this.id = uid(); this.slot = -1; this.watching = false; this.players = {}; this.subs = []; this.ms = []; this.game = null; this.sel = {}; this.left = false; this.root = db.ref('jimoto/' + this.code); }
     on(ref, ev, fn, list) { ref.on(ev, fn); (list || this.subs).push([ref, ev, fn]); }
     async join() {
       if (!this.code) throw new Error('あいことばを入れてください');
@@ -46,7 +46,7 @@
         else this.joinM = ((g0 && g0.m) || 0) + 1;
       }
       this.on(this.root.child('players'), 'value', s => {
-        const prev = this.players; this.players = s.val() || {}; ui.people();
+        const prev = this.players; this.players = s.val() || {}; for (const k in this.players) if (this.players[k] && this.players[k].name) this.players[k].name = QM.ng(this.players[k].name); ui.people();
         const gone = this.watching ? ((prev[0] && !this.players[0]) || (prev[1] && !this.players[1])) : (prev[1 - this.slot] && !this.players[1 - this.slot]);
         if (gone) ui.left();
         this.tryStart();
@@ -115,7 +115,9 @@
       s.foeReady = !!(fo && fo.ok); if (s.mode === 'net' && !s.reveal) JM.renderSlots(); ui.status();
     },
     newGame(m) {
-      const s = st(); s.mode = R.watching ? 'watch' : 'net'; s.my = R.slot; s.reveal = false; s.myReady = false; s.foeReady = false; s.netNote = '';
+      const s = st(); s.mode = R.watching ? 'watch' : 'net';
+      QM.started({ code: R.code, watch: R.watching });
+      s.rnd = QM.isRandom(); if (s.rnd) { s.pol = 'pol'; s.cls = 'all'; } s.my = R.slot; s.reveal = false; s.myReady = false; s.foeReady = false; s.netNote = '';
       if (!R.watching) { const o = s.slots[1 - R.slot]; o.e = null; o.parts = null; o.cards = []; o.dir = 0; }
       $('result').classList.remove('on'); JM.openSetup(); ui.status();
       if (!R.watching) R.setSel({ mode: s.pol, cls: s.cls, ok: 0 });
@@ -138,7 +140,18 @@
       s.netNote = v[0] === v[1] ? 'ふたりの画面で同じ結果になりました。' : '※ふたりの画面で結果がずれました（お知らせください）';
       if (R && R.slot === 0) R.done();
     },
-    left() { JM.toast('あいてがいなくなりました'); setTimeout(() => { Net.leave(); JM.toTitle(); }, 1500); },
+    left() {
+      if (QM.isRandom()) {
+        // ランダム対戦：相手が抜けたら、残った人の勝ち（試合が終わったあとなら知らせるだけ）
+        const after = !!(st().result && document.getElementById('result').classList.contains('on'));
+        QM.notice(after ? '相手が部屋から出ました' : 'あなたの勝ち！', after ? 'また別の人と対戦できます。' : '相手が抜けたので、あなたの勝ち！', [
+          { label: '次の相手をさがす', fn: () => QM.next() },
+          { label: 'タイトルへ', sub: true, fn: () => { Net.leave(); JM.toTitle(); } },
+        ]);
+        return;
+      }
+      JM.toast('あいてがいなくなりました'); setTimeout(() => { Net.leave(); JM.toTitle(); }, 1500);
+    },
   };
   const Net = JM.Net = {
     async join(name, code) {
@@ -169,7 +182,8 @@
     },
     finished() { },
     again() { if (R && !R.watching) { R.again(); st().netNote = ''; JM.toast('あいてを待っています…'); } },
-    leave() { if (R) { R.leave(); R = null; JM.room = null; } },
+    leave() { QM.ended(); if (R) { R.leave(); R = null; JM.room = null; } },
   };
   JM.cleanCode = clean;
+  JM.getDb = getDb;
 })();

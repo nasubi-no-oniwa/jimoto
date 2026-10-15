@@ -29,7 +29,7 @@
   }
   function areaText(e) { return '面積 ' + (e.a >= 100 ? Math.round(e.a) : e.a.toFixed(1)) + 'km²'; }
   JM.popText = popText; JM.areaText = areaText;
-  const editable = i => st.mode === 'local' || st.my === i;
+  const editable = i => (st.mode === 'local' && !(st.chal && i === 1)) || st.my === i;
   // ---------- 1つの枠を描く ----------
   function renderSlot(i) {
     const el = $('slot' + i), s = st.slots[i], side = ['左・赤', '右・青'][i];
@@ -101,7 +101,7 @@
     saveSlots(); updateFight(); if (st.mode !== 'local' && JM.Net) JM.Net.changed();
   }
   JM.setSlot = setSlot;
-  function saveSlots() { if (st.mode === 'local') store('jm_slots', JSON.stringify(st.slots.map(s => ({ id: s.e && s.e.id, dir: s.dir, cards: s.cards })))); }
+  function saveSlots() { if (st.mode === 'local' && !st.chal) store('jm_slots', JSON.stringify(st.slots.map(s => ({ id: s.e && s.e.id, dir: s.dir, cards: s.cards })))); }
   async function loadSlots() {
     try {
       const v = JSON.parse(store('jm_slots') || 'null'); if (!v) return;
@@ -180,7 +180,9 @@
       $('res-t').innerHTML = (st.gk ? '<span class="gk">下剋上</span><br>' : '') + esc(t); $('res-line').textContent = line + (r.endBy === 'time' ? '（時間切れ判定）' : '');
       drawResultImage(t, line);
       $('res-note').textContent = st.mode === 'local' ? '同じ組み合わせ・向き・政策なら、いつでも同じ結果になります。' : (st.netNote || '');
-      $('btn-change').textContent = st.mode === 'local' ? '組み合わせを変える' : (st.mode === 'watch' ? 'もどる' : 'もう一戦（えらびなおす）');
+      $('btn-chal-put').hidden = !(st.mode === 'local' && !st.chal); $('btn-chal-next').hidden = !st.chal;
+      if (st.chal) { $('res-line').textContent = line + '　…成績をつけています'; JM.Chal.onResult(r.winner).then(t => { if (t) $('res-line').textContent = t; }); }
+      $('btn-change').textContent = st.mode === 'local' ? (st.chal ? '自分の市町村を変える' : '組み合わせを変える') : (st.mode === 'watch' ? 'もどる' : 'もう一戦（えらびなおす）');
       $('result').classList.add('on');
     }, 1500);
   }
@@ -267,12 +269,15 @@
   }
   // ---------- ボタン ----------
   function bind() {
-    $('btn-play').onclick = () => { S().unlock && S().unlock(); S().play('ui'); st.mode = 'local'; st.my = -1; st.reveal = true; openSetup(); };
+    $('btn-play').onclick = () => { S().unlock && S().unlock(); S().play('ui'); if (st.chal) { st.chal = null; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; openSetup(); };
+    $('btn-chal').onclick = () => { S().unlock && S().unlock(); S().play('ui'); JM.Chal.open(); };
+    $('btn-chal-put').onclick = () => { S().play('ui'); JM.Chal.put(); };
+    $('btn-chal-next').onclick = () => { S().play('ui'); $('result').classList.remove('on'); JM.Chal.open(); };
     $('btn-howto').onclick = () => { S().play('ui'); show('s-howto'); };
     $('btn-how-back').onclick = () => { S().play('ui'); show('s-title'); };
     $('btn-setup-back').onclick = () => { S().play('ui'); if (st.mode !== 'local' && JM.Net) JM.Net.leave(); toTitle(); };
     $('btn-snd').onclick = () => { S().unlock && S().unlock(); const m = !(JM.mute && JM.mute()); JM.mute && JM.mute(m); $('snd-name').textContent = m ? 'なし' : 'あり'; };
-    for (const b of document.querySelectorAll('.seg')) b.onclick = () => { if (st.mode === 'watch' || (st.mode === 'net' && st.reveal)) return; st.pol = b.dataset.mode; store('jm_pol', st.pol); syncMode(); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
+    for (const b of document.querySelectorAll('.seg')) b.onclick = () => { if (st.mode === 'watch' || (st.mode === 'net' && st.reveal)) return; if (st.rnd || st.chal) { toast(st.rnd ? 'だれかと対戦は「全体の部・政策あり」で戦います' : '挑戦状のルールで戦います'); return; } st.pol = b.dataset.mode; store('jm_pol', st.pol); syncMode(); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
     document.addEventListener('click', ev => {
       const t = ev.target.closest('[data-pick],[data-rand],[data-rot],[data-pol]'); if (!t) return;
       S().play('ui');
@@ -296,16 +301,29 @@
     $('btn-on-back').onclick = () => { S().play('ui'); if (JM.Net) JM.Net.leave(); toTitle(); };
     $('btn-join').onclick = () => { if (JM.Net) JM.Net.join($('in-name').value, $('in-code').value); };
   }
-  function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); $('cls-sel').value = st.cls; $('cls-sel').disabled = st.mode === 'watch' || (st.mode === 'net' && st.reveal); }
-  function openSetup() { syncMode(); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; renderSlots(); S().bgm('title'); }
+  function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); $('cls-sel').value = st.cls; $('cls-sel').disabled = st.mode === 'watch' || (st.mode === 'net' && st.reveal) || !!st.rnd || !!st.chal; }
+  function openSetup() { syncMode(); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; if (JM.Chal) JM.Chal.header(); renderSlots(); S().bgm('title'); }
   JM.openSetup = openSetup; JM.renderSlots = renderSlots; JM.show = show; JM.syncMode = syncMode;
-  function toTitle() { st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
+  function toTitle() { QM.ended(); st.rnd = false; if (st.chal) { st.chal = null; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; if (JM.Chal) JM.Chal.mineSummary(); $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
   JM.toTitle = toTitle;
+  // ---------- だれかと対戦（ランダム対戦） ----------
+  function setupQM() {
+    QM.setup({
+      game: 'jimoto', ver: 'v1', name: '地元の最強',
+      getDb: () => JM.getDb(), anchor: '#btn-online', anchorWhere: 'before', btnClass: 'btn big hot', nextClass: 'btn', nameKey: 'jm_name',
+      join: (code, name) => { S().unlock && S().unlock(); JM.Net.join(name, code); },
+      cpu: () => JM.Chal.open(true), cpuLabel: '挑戦状と戦いながら待つ',
+      quit: () => { if (JM.Net) JM.Net.leave(); toTitle(); },
+      colors: { main: 'var(--red)', alt: 'var(--blue)', bg: '#f6eedb', fg: '#2a211b' },
+    });
+    QM.resultSlot('#result .sheet-in', '#chal-row');
+    JM.Chal.mineSummary(true);
+  }
   async function boot() {
     R.init($('arena'));
     $('cls-sel').innerHTML = JM.CLASSES.map(c => `<option value="${c.k}">${c.n}${c.k === 'all' ? '' : '（' + c.t.replace('人口', '') + '）'}</option>`).join('');
     $('cls-sel').onchange = () => { st.cls = $('cls-sel').value; store('jm_cls', st.cls); S().play('ui'); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
-    bind();
+    bind(); setupQM();
     $('snd-name').textContent = JM.mute && JM.mute() ? 'なし' : 'あり';
     requestAnimationFrame(frame);
     try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }
