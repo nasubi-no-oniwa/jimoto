@@ -16,10 +16,10 @@
     D.pref = meta.pref;
     const n = idx.id.length;
     for (let i = 0; i < n; i++) {
-      const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i] };
+      const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
       e.full = e.pn + ' ' + e.n;
-      e.key = norm(e.pn + e.n + (e.c || '')); e.kk = norm(e.k);
+      e.key = norm(e.pn + e.n + (e.c || '') + (e.al || '')); e.kk = norm(e.k);
       D.list.push(e); D.byId.set(e.id, e);
     }
     D.ready = true;
@@ -47,10 +47,11 @@
     return { cur: false, txt };
   };
   D.years = e => (e.f ? e.f + '年' : '') + '〜' + (e.t ? e.t.slice(0, 4) + '年' : '');
-  D.search = function (q, max = 80) {
+  D.search = function (q, max = 80, cls) {
     const n = norm(q); if (!n) return [];
     const out = [];
     for (const e of D.list) {
+      if (cls && !JM.inClass(cls, e.pop)) continue;
       let sc = -1;
       const nn = norm(e.n);
       if (nn === n || e.kk === n) sc = 0;
@@ -62,7 +63,7 @@
     out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
     return out.slice(0, max).map(x => x[4]);
   };
-  D.random = function (rnd) { return D.list[Math.floor((rnd || Math.random)() * D.list.length)]; };
+  D.random = function (cls) { const L = cls && cls !== 'all' ? D.list.filter(e => JM.inClass(cls, e.pop)) : D.list; return L[Math.floor(Math.random() * L.length)]; };
   // 形（県ごとのファイル）
   D.shape = async function (id) {
     const e = D.byId.get(id); if (!e) throw new Error('見つかりません');

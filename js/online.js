@@ -102,9 +102,11 @@
       let t = n[0] + ' VS ' + n[1];
       if (!s.reveal && s.mode === 'net') {
         const fo = R.sel[1 - R.slot];
-        if (fo && fo.ok && fo.mode !== s.pol) t += '　あいては「' + (fo.mode === 'pol' ? '政策あり' : '政策なし') + '」で準備OK。モードを合わせてね';
+        const desc = f => '「' + (JM.CLS[f.cls || 'all'] || JM.CLS.all).n + '・' + (f.mode === 'pol' ? '政策あり' : '政策なし') + '」';
+        const same = fo && fo.mode === s.pol && (fo.cls || 'all') === s.cls;
+        if (fo && fo.ok && !same) t += '　あいては' + desc(fo) + 'で準備OK。合わせてね';
         else if (fo && fo.ok) t += '　あいては準備OK！';
-        else if (fo) t += '　あいては「' + (fo.mode === 'pol' ? '政策あり' : '政策なし') + '」を選んでいます';
+        else if (fo) t += '　あいては' + desc(fo) + 'を選んでいます';
       }
       s.netStatus = t; $('on-st').textContent = t;
     },
@@ -116,13 +118,13 @@
       const s = st(); s.mode = R.watching ? 'watch' : 'net'; s.my = R.slot; s.reveal = false; s.myReady = false; s.foeReady = false; s.netNote = '';
       if (!R.watching) { const o = s.slots[1 - R.slot]; o.e = null; o.parts = null; o.cards = []; o.dir = 0; }
       $('result').classList.remove('on'); JM.openSetup(); ui.status();
-      if (!R.watching) R.setSel({ mode: s.pol, ok: 0 });
+      if (!R.watching) R.setSel({ mode: s.pol, cls: s.cls, ok: 0 });
     },
     async picks() {
       const s = st(), P = R.picks || {};
       if (!P[0] || !P[1] || s.reveal) return;
-      if (P[0].mode !== P[1].mode) return;   // モードがちがうときは始めない
-      s.reveal = true; s.pol = P[0].mode; JM.syncMode();
+      if (P[0].mode !== P[1].mode || (P[0].cls || 'all') !== (P[1].cls || 'all')) return;   // モード・階級がちがうときは始めない
+      s.reveal = true; s.pol = P[0].mode; s.cls = P[0].cls || 'all'; JM.syncMode();
       for (const i of [0, 1]) {
         const p = P[i], e = D.byId.get(p.id); if (!e) continue;
         const sl = s.slots[i]; sl.dir = p.dir | 0; sl.cards = (p.cards || []).filter(k => JM.POL[k]);
@@ -157,12 +159,12 @@
     changed() {
       if (!R || R.watching) return; const s = st();
       if (s.myReady) { s.myReady = false; R.unpick(); JM.toast('変更したので、準備OKを取り消しました'); }
-      R.setSel({ mode: s.pol, ok: 0 }); JM.renderSlots(); ui.status();
+      R.setSel({ mode: s.pol, cls: s.cls, ok: 0 }); JM.renderSlots(); ui.status();
     },
     ready() {
       if (!R || R.watching) return; const s = st(), sl = s.slots[R.slot]; if (!sl.e) return;
-      s.myReady = true; R.setSel({ mode: s.pol, ok: 1 });
-      R.pick({ id: sl.e.id, dir: sl.dir, cards: s.pol === 'pol' ? sl.cards : [], mode: s.pol });
+      s.myReady = true; R.setSel({ mode: s.pol, cls: s.cls, ok: 1 });
+      R.pick({ id: sl.e.id, dir: sl.dir, cards: s.pol === 'pol' ? sl.cards : [], mode: s.pol, cls: s.cls });
       JM.renderSlots(); ui.status();
     },
     finished() { },

@@ -133,3 +133,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .toast.on { opacity: 1; }
 #res-img { max-height: 46vh; width: auto; max-width: 100%; }
 @media (max-height: 470px) { .res-t { font-size: 24px; } .res-line { font-size: 13px; margin-bottom: 4px; } #res-img { max-height: 40vh; } .res .row { margin-top: 6px; } .res .btn { padding: 8px 14px; font-size: 14px; } .sl-shape canvas { width: 96px !important; height: 96px !important; } .sl-name { font-size: 17px; } }
+
+.cls { font: inherit; font-size: 13px; font-weight: 900; padding: 6px 8px; border-radius: 10px; border: 0; background: var(--paper2); color: var(--ink); max-width: 46vw; }
+.cls-warn { background: #fde2d8; color: #9a2a14; border-radius: 10px; padding: 4px 8px; font-size: 12px; margin-top: 6px; }
+.gk { display: inline-block; background: #ffcf3a; color: var(--sumi); border-radius: 8px; padding: 0 8px; margin-left: 6px; font-family: 'Dela Gothic One'; font-weight: 400; }

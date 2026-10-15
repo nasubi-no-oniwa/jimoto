@@ -10,7 +10,7 @@
   const S = () => JM.S || { play() {}, bgm() {} };
   // ---------- 状態 ----------
   const st = {
-    mode: 'local', pol: store('jm_pol') || 'pol',
+    mode: 'local', pol: store('jm_pol') || 'pol', cls: store('jm_cls') || 'all',
     slots: [{ e: null, parts: null, dir: 0, cards: [] }, { e: null, parts: null, dir: 0, cards: [] }],
     my: -1,              // オンラインで自分が受け持つ側（ローカルは -1 ＝両方）
     match: null, live: null, speed: 1, result: null,
@@ -72,6 +72,7 @@
       }
       h += `</div>`;
     }
+    if (!JM.inClass(st.cls, e.pop)) h += `<div class="cls-warn">「${JM.CLS[st.cls].n}」（${JM.CLS[st.cls].t}）には出られません</div>`;
     if (ed) h += `<div class="sl-btns"><button class="btn sm" data-pick="${i}">べつの市町村</button><button class="btn sm" data-rand="${i}">おまかせ</button></div>`;
     el.innerHTML = h;
     const cv = el.querySelector('[data-shape]'); if (cv && s.parts) {
@@ -85,10 +86,11 @@
   function renderSlots() { renderSlot(0); renderSlot(1); updateFight(); }
   function updateFight() {
     const b = $('btn-fight');
-    if (st.mode === 'local') { b.disabled = !(st.slots[0].e && st.slots[1].e); b.textContent = 'はっけよい！'; return; }
+    const okc = i => st.slots[i].e && JM.inClass(st.cls, st.slots[i].e.pop);
+    if (st.mode === 'local') { b.disabled = !(okc(0) && okc(1)); b.textContent = 'はっけよい！'; return; }
     if (st.mode === 'watch') { b.disabled = true; b.textContent = '観戦中'; return; }
     const mine = st.slots[st.my];
-    b.disabled = !mine.e || !!st.myReady; b.textContent = st.myReady ? '準備OK（あいて待ち）' : '準備OK！';
+    b.disabled = !okc(st.my) || !!st.myReady; b.textContent = st.myReady ? '準備OK（あいて待ち）' : '準備OK！';
   }
   // ---------- 市町村をセット ----------
   async function setSlot(i, e) {
@@ -109,11 +111,11 @@
   // ---------- 検索 ----------
   let pickFor = 0;
   function openPicker(i) {
-    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; $('pk-hint').textContent = '例：「ふちゅう」「湯布院」「北海道 村」。全' + fmt(D.list.length) + 'の市町村・区から探せます';
+    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」';
     setTimeout(() => $('pk-q').focus(), 50);
   }
   function runSearch() {
-    const q = $('pk-q').value, res = D.search(q, 120), ul = $('pk-list');
+    const q = $('pk-q').value, res = D.search(q, 120, st.cls === 'all' ? null : st.cls), ul = $('pk-list');
     if (!q.trim()) { ul.innerHTML = ''; return; }
     if (!res.length) { ul.innerHTML = '<li>見つかりませんでした</li>'; return; }
     ul.innerHTML = res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${esc(e.n)}</span><span class="kn">${esc(e.k)}${e.c ? '・' + esc(e.c) : ''}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
@@ -168,11 +170,14 @@
     let t, line;
     if (r.winner < 0) { t = '引き分け'; line = `${e0.n} と ${e1.n} は引き分け！`; }
     else { const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1; t = `${w.n}の勝ち！`; line = `${w.pn}${w.n}が${l.pn}${l.n}に勝った！`; }
-    call(t + (r.endBy === 'time' ? '<small>時間切れ・残りの多さで勝負</small>' : ''), 1.6);
+    // 下剋上：もとの能力の合計がずっと下の方が勝った
+    st.gk = r.winner >= 0 && (JM.statSum((r.winner ? e0 : e1).st) - JM.statSum((r.winner ? e1 : e0).st) >= JM.GEKOKUJO);
+    if (st.gk) line = '【下剋上】' + line;
+    call((st.gk ? '下剋上！\n' : '') + t + (r.endBy === 'time' ? '<small>時間切れ・残りの多さで勝負</small>' : ''), st.gk ? 2.2 : 1.6);
     S().play(r.winner < 0 ? 'draw' : 'win');
     if (JM.Net && st.mode !== 'local') JM.Net.finished(r);
     setTimeout(() => {
-      $('res-t').textContent = t; $('res-line').textContent = line + (r.endBy === 'time' ? '（時間切れ判定）' : '');
+      $('res-t').innerHTML = (st.gk ? '<span class="gk">下剋上</span><br>' : '') + esc(t); $('res-line').textContent = line + (r.endBy === 'time' ? '（時間切れ判定）' : '');
       drawResultImage(t, line);
       $('res-note').textContent = st.mode === 'local' ? '同じ組み合わせ・向き・政策なら、いつでも同じ結果になります。' : (st.netNote || '');
       $('btn-change').textContent = st.mode === 'local' ? '組み合わせを変える' : (st.mode === 'watch' ? 'もどる' : 'もう一戦（えらびなおす）');
@@ -188,6 +193,8 @@
     c.fillStyle = '#2a211b'; c.fillRect(0, 0, W, 84); c.fillRect(0, H - 54, W, 54);
     c.font = '400 46px "Dela Gothic One",sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText('地元の', 28, 44); c.fillStyle = '#ffcf3a'; c.fillText('最強', 28 + c.measureText('地元の').width, 44);
     c.font = '900 30px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#fff'; c.textAlign = 'right'; c.fillText(t, W - 28, 44);
+    if (st.gk) { c.save(); c.translate(600, 165); c.rotate(-0.08); c.fillStyle = '#ffcf3a'; c.strokeStyle = '#2a211b'; c.lineWidth = 6; c.beginPath(); c.roundRect ? c.roundRect(-140, -40, 280, 80, 14) : c.rect(-140, -40, 280, 80); c.fill(); c.stroke(); c.font = '400 54px "Dela Gothic One",sans-serif'; c.fillStyle = '#2a211b'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('下剋上！', 0, 4); c.restore(); }
+    { const cl = JM.CLS[st.cls]; c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#7a5a2a'; c.textAlign = 'center'; c.fillText(cl.n + (st.cls === 'all' ? '' : '（' + cl.t + '）'), 600, 108); }
     const side = (i, x) => {
       const s = st.slots[i], e = s.e, b = i ? m.B : m.A, win = r.winner === i, lose = r.winner >= 0 && !win;
       // 最後の形（割れたあと）
@@ -270,13 +277,13 @@
       const t = ev.target.closest('[data-pick],[data-rand],[data-rot],[data-pol]'); if (!t) return;
       S().play('ui');
       if (t.dataset.pick != null) openPicker(+t.dataset.pick);
-      else if (t.dataset.rand != null) setSlot(+t.dataset.rand, D.random());
+      else if (t.dataset.rand != null) setSlot(+t.dataset.rand, D.random(st.cls));
       else if (t.dataset.rot != null) { const i = +t.dataset.rot, s = st.slots[i]; s.dir = (s.dir + (+t.dataset.d) + 8) % 8; renderSlot(i); saveSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); }
       else if (t.dataset.pol != null) { const i = +t.dataset.pol, s = st.slots[i], k = t.dataset.k; if (s.cards.includes(k)) s.cards = s.cards.filter(x => x !== k); else if (JM.canAdd(s.cards, k, s.e.pop)) s.cards.push(k); renderSlot(i); saveSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); }
     });
     $('pk-q').oninput = () => { clearTimeout(st.sT); st.sT = setTimeout(runSearch, 120); };
     $('pk-close').onclick = () => $('picker').classList.remove('on');
-    $('pk-rand').onclick = () => { $('picker').classList.remove('on'); setSlot(pickFor, D.random()); };
+    $('pk-rand').onclick = () => { $('picker').classList.remove('on'); setSlot(pickFor, D.random(st.cls)); };
     $('pk-list').onclick = ev => { const li = ev.target.closest('li[data-id]'); if (!li) return; S().play('ui'); $('picker').classList.remove('on'); setSlot(pickFor, D.byId.get(li.dataset.id)); };
     $('btn-fight').onclick = () => { S().unlock && S().unlock(); if (st.mode === 'local') startBattle(); else if (JM.Net) JM.Net.ready(); };
     $('btn-speed').onclick = () => { st.speed = st.speed === 1 ? 2 : st.speed === 2 ? 4 : 1; $('btn-speed').textContent = '×' + st.speed; };
@@ -289,13 +296,16 @@
     $('btn-on-back').onclick = () => { S().play('ui'); if (JM.Net) JM.Net.leave(); toTitle(); };
     $('btn-join').onclick = () => { if (JM.Net) JM.Net.join($('in-name').value, $('in-code').value); };
   }
-  function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); }
+  function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); $('cls-sel').value = st.cls; $('cls-sel').disabled = st.mode === 'watch' || (st.mode === 'net' && st.reveal); }
   function openSetup() { syncMode(); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; renderSlots(); S().bgm('title'); }
   JM.openSetup = openSetup; JM.renderSlots = renderSlots; JM.show = show; JM.syncMode = syncMode;
   function toTitle() { st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
   JM.toTitle = toTitle;
   async function boot() {
-    R.init($('arena')); bind();
+    R.init($('arena'));
+    $('cls-sel').innerHTML = JM.CLASSES.map(c => `<option value="${c.k}">${c.n}${c.k === 'all' ? '' : '（' + c.t.replace('人口', '') + '）'}</option>`).join('');
+    $('cls-sel').onchange = () => { st.cls = $('cls-sel').value; store('jm_cls', st.cls); S().play('ui'); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
+    bind();
     $('snd-name').textContent = JM.mute && JM.mute() ? 'なし' : 'あり';
     requestAnimationFrame(frame);
     try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }

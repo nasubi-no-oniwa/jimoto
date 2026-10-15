@@ -25,6 +25,19 @@
     { k: 'castle', n: '城下町保存', c: 6, d: {}, t: '中心部だけは絶対に割れない' },
   ];
   JM.POL = Object.fromEntries(JM.POLICIES.map(p => [p.k, p]));
+  // 階級（人口で分ける。人口がわからないものは村の部）
+  JM.CLASSES = [
+    { k: 'all', n: '全体の部', t: 'すべての市町村', min: 0, max: Infinity },
+    { k: 's', n: '村の部', t: '人口1万人まで', min: 0, max: 10000 },
+    { k: 'm', n: '町の部', t: '人口1万〜5万人', min: 10000, max: 50000 },
+    { k: 'l', n: '市の部', t: '人口5万〜30万人', min: 50000, max: 300000 },
+    { k: 'xl', n: '大都市の部', t: '人口30万人以上', min: 300000, max: Infinity },
+  ];
+  JM.CLS = Object.fromEntries(JM.CLASSES.map(c => [c.k, c]));
+  JM.inClass = (k, pop) => { const c = JM.CLS[k] || JM.CLS.all; const p = pop || 0; return p >= c.min && p < c.max; };
+  // 下剋上：もとの能力の合計が、負けた相手より大きく下なのに勝ったとき
+  JM.statSum = st => st.reduce((a, b) => a + b, 0);
+  JM.GEKOKUJO = 25;
   JM.MAXCARDS = 3;
   JM.BASE_BUDGET = 10;
   // 交付金：人口が少ないほど多い（5万人以上はなし）
