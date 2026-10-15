@@ -16,7 +16,7 @@
     D.pref = meta.pref;
     const n = idx.id.length;
     for (let i = 0; i < n; i++) {
-      const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '' };
+      const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '', nw: idx.nw ? idx.nw[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
       e.full = e.pn + ' ' + e.n;
       // 探す文字：「県＋名前」「県＋郡＋名前」「郡＋名前」「別名」のどの書き方でも見つかるように
@@ -39,7 +39,9 @@
   }
   D.norm = norm;
   // 合併先をたどって「今は〇〇」を出す
+  // 役場があった場所が、今どの市町村・区に入っているか（nw）を先に使う。なければ合併先をたどる
   D.now = function (e) {
+    const w = e.nw && D.byId.get(e.nw); if (w && !w.t) return w;
     let x = e, guard = 0;
     while (x && x.t && x.s && guard++ < 12) x = D.byId.get(x.s);
     return x && !x.t ? x : null;
