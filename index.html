@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>地元の最強</title>
+<meta name="description" content="全国の市町村の「本物の形」でぶつかり合う。明治から今まで、なくなった町村もぜんぶ出られる。あなたの地元は最強か？">
+<meta name="theme-color" content="#2a211b">
+<meta property="og:title" content="地元の最強">
+<meta property="og:description" content="市町村の本物の形でぶつかり合え。あなたの地元は最強か？">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="arena"></canvas>
+
+<!-- タイトル -->
+<section class="screen active" id="s-title">
+  <div class="t-wrap">
+    <div class="logo"><span class="l1">地元の</span><span class="l2">最強</span></div>
+    <p class="sub">市町村の<b>本物の形</b>でぶつかり合え。<br>明治から今まで、なくなった町村もぜんぶ出られる。</p>
+    <div class="t-btns">
+      <button class="btn big hot" id="btn-play">好きな2つを戦わせる</button>
+      <button class="btn big blue" id="btn-online">あいことば対戦</button>
+      <div class="row">
+        <button class="btn" id="btn-howto">あそびかた</button>
+        <button class="btn" id="btn-snd">音：<span id="snd-name">あり</span></button>
+      </div>
+    </div>
+    <p class="loading" id="loading">市町村を読みこみ中…</p>
+  </div>
+</section>
+
+<!-- えらぶ -->
+<section class="screen" id="s-setup">
+  <header class="bar">
+    <button class="btn sm ghost" id="btn-setup-back">← もどる</button>
+    <div class="mode" id="mode-box">
+      <button class="seg on" data-mode="pol">政策あり</button><button class="seg" data-mode="nopol">政策なし</button>
+    </div>
+    <div class="on-st" id="on-st"></div>
+  </header>
+  <div class="slots">
+    <div class="slot" id="slot0"></div>
+    <div class="vs-mid"><span>VS</span></div>
+    <div class="slot" id="slot1"></div>
+  </div>
+  <footer class="bar bottom">
+    <button class="btn big hot" id="btn-fight">はっけよい！</button>
+  </footer>
+</section>
+
+<!-- 検索 -->
+<div class="sheet" id="picker">
+  <div class="sheet-in">
+    <div class="pk-head">
+      <input id="pk-q" type="search" placeholder="市町村の名前（ひらがなでもOK）" autocomplete="off">
+      <button class="btn sm" id="pk-rand">おまかせ</button>
+      <button class="btn sm ghost" id="pk-close">とじる</button>
+    </div>
+    <div class="pk-hint" id="pk-hint">例：「ふちゅう」「湯布院」「北海道 村」</div>
+    <ul class="pk-list" id="pk-list"></ul>
+  </div>
+</div>
+
+<!-- 試合 -->
+<section class="screen" id="s-battle">
+  <div class="hud">
+    <div class="hp l"><b id="hn0"></b><div class="gauge"><i id="hg0"></i></div><span id="hv0">100%</span></div>
+    <div class="clock" id="clock">60</div>
+    <div class="hp r"><span id="hv1">100%</span><div class="gauge"><i id="hg1"></i></div><b id="hn1"></b></div>
+  </div>
+  <div class="call" id="call"></div>
+  <div class="b-btns"><button class="btn sm ghost" id="btn-speed">×1</button><button class="btn sm ghost" id="btn-skip">結果へ</button></div>
+</section>
+
+<!-- 結果 -->
+<div class="sheet" id="result">
+  <div class="sheet-in res">
+    <div class="res-t" id="res-t"></div>
+    <div class="res-line" id="res-line"></div>
+    <canvas id="res-img" width="1200" height="675"></canvas>
+    <div class="row">
+      <button class="btn hot" id="btn-share">Xに投稿</button>
+      <button class="btn" id="btn-save">画像を保存</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="btn-replay">もう一度見る</button>
+      <button class="btn" id="btn-change">組み合わせを変える</button>
+    </div>
+    <p class="note" id="res-note"></p>
+  </div>
+</div>
+
+<!-- あいことば対戦 -->
+<section class="screen" id="s-online">
+  <div class="card on-card">
+    <h2>あいことば対戦</h2>
+    <div id="on-form">
+      <p class="note">同じ「あいことば」を入れた人と1対1。お互いに市町村・向き・政策をこっそり決めて、同時に公開します。3人目からは観戦です。</p>
+      <label class="fld">なまえ<input id="in-name" maxlength="8" placeholder="8文字まで"></label>
+      <label class="fld">あいことば<input id="in-code" maxlength="20" placeholder="例：ちもとたいけつ"></label>
+      <button class="btn hot wide" id="btn-join">入る</button>
+    </div>
+    <div id="on-wait" class="hide"><p class="big-note" id="on-msg">あいてを待っています…</p><p class="note" id="on-people"></p></div>
+    <p class="err" id="on-err"></p>
+    <button class="btn sm ghost" id="btn-on-back">もどる</button>
+  </div>
+</section>
+
+<!-- あそびかた -->
+<section class="screen" id="s-howto">
+  <div class="card how">
+    <h2>あそびかた</h2>
+    <ol>
+      <li><b>2つの市町村をえらぶ。</b>名前（漢字でもひらがなでも）で探せます。明治から今までの市町村・区、なくなった町村もぜんぶ出られます。</li>
+      <li><b>向きを決める。</b>45度ずつ8方向。どこから相手に当たるかで結果が変わります。</li>
+      <li><b>政策カードで味付け（3枚まで）。</b>予算は10。人口が少ない市町村には<b>交付金</b>がつき、予算が増えます（5千人未満＋10、2万人未満＋6、5万人未満＋3）。</li>
+      <li><b>はっけよい！</b>あとは全自動。ぶつかるたびに割れて欠けていき、先に65％を失った方の負け。60秒たったら残りが多い方の勝ちです。</li>
+      <li><b>同じ組み合わせ・同じ向き・同じ政策なら、いつでも必ず同じ結果</b>になります。いろいろ試して、最強の地元を見つけてください。</li>
+    </ol>
+    <h3>強さの決まり方</h3>
+    <p class="note">体力＝面積、勢い＝人口、速さ＝人口密度、かたさ＝形のまとまり、鋭さ＝形のトゲ。1980年より前になくなった町村の人口は、まわりの人口密度から出した<b>推定</b>です。読みがなにも推定のものがあります。</p>
+    <h3>データ</h3>
+    <p class="credit">「国土数値情報（行政区域データ）」（国土交通省）をもとに、ROIS-DS人文学オープンデータ共同利用センター「歴史的行政区域データセットβ版」（CC BY 4.0）を加工して作成<br>人口：総務省統計局「国勢調査」（e-Stat）を加工して作成<br>読みがな：日本郵便「郵便番号データ」をもとに作成<br>効果音：Kenney「Impact Sounds」（CC0）　音楽：自作</p>
+    <button class="btn" id="btn-how-back">もどる</button>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/online.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
