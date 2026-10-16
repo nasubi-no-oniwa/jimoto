@@ -47,6 +47,57 @@
     return r.json();
   }
   C.rest = rest;
+  // ---------- 書きこみ ----------
+  // ふだんは常時接続（Firebase）で書く。8秒たっても返事がない端末（Wi-Fi やブラウザの設定で常時接続がつながらない）では、
+  // ふつうの通信（REST）で書きなおす。どちらも、データベースの決まりは同じようにかかる
+  const late = ms => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+  async function restPut(path, val) {
+    const ac = typeof AbortController !== 'undefined' ? new AbortController() : null, t = ac && setTimeout(() => ac.abort(), 12000);
+    try {
+      const r = await fetch(DBURL() + '/' + path + '.json', { method: 'PUT', body: JSON.stringify(val), signal: ac ? ac.signal : undefined, cache: 'no-store' });
+      if (r.ok) return true;
+      // 先に常時接続のほうが書けていたときは、2回目がはじかれる → 書けているか確かめる
+      const now = await rest(path).catch(() => null);
+      if (now != null && JSON.stringify(now).length > 2) return true;
+      throw new Error('http ' + r.status);
+    } finally { if (t) clearTimeout(t); }
+  }
+  let sdkSlow = false;   // 一度つながらなかったら、それからはふつうの通信だけで書く
+  async function put(path, val) {
+    if (!sdkSlow) {
+      try {
+        const d = await Promise.race([db(), late(6000)]);
+        await Promise.race([d.ref(path).set(val), late(6000)]);
+        return;
+      } catch (e) {
+        if (e && /permission/i.test(String(e.code || e.message || ''))) throw e;   // 決まりではじかれたときは、そのまま失敗
+        sdkSlow = true;
+      }
+    }
+    await restPut(path, val);
+  }
+  // 成績の数（勝ち・負け）を1つ足す
+  async function bump(id, winner) {
+    const f = cur => {
+      if (!cur) return cur;
+      if (winner === 1) cur.w = (cur.w || 0) + 1; else cur.l = (cur.l || 0) + 1;
+      if (!cur.p) { const e = D.byId.get(cur.e); if (e) cur.p = JM.region(e); }
+      cur.u = Date.now();
+      return cur;
+    };
+    if (!sdkSlow) {
+      try {
+        const d = await Promise.race([db(), late(6000)]);
+        const res = await Promise.race([d.ref('jm_chal/' + id).transaction(f), late(6000)]);
+        return res.snapshot && res.snapshot.val();
+      } catch (e) {
+        if (e && /permission/i.test(String(e.code || e.message || ''))) return null;
+        sdkSlow = true;
+      }
+    }
+    const cur = await rest('jm_chal/' + id); if (!cur) return null;
+    const nv = f(cur); await restPut('jm_chal/' + id, nv); return nv;
+  }
   // 引退した挑戦状のID（1分は使い回す）
   async function retiredSet(force) {
     if (!force && retired && Date.now() - retiredAt < 60000) return retired;
@@ -158,17 +209,9 @@
     dn.push(c.id); store.set('jm_chaldone', dn.slice(-DONE_MAX));
     const me = s.slots[0], pol = c.m !== 'nopol';
     try {
-      const d = await db();
       // 対戦の記録（番付で、計算しなおして確かめるのに使う）
-      await d.ref('jm_res/' + c.id + '/' + rid()).set({ e: me.e.id, n: QM.ng(myName()) || 'ななし', d: me.dir | 0, c: pol ? me.cards.join(',') : '', w: winner === 0 ? 1 : 0, t: Date.now() });
-      const res = await d.ref('jm_chal/' + c.id).transaction(cur => {
-        if (!cur) return cur;            // 最初は手元に値がないことがある → サーバーの値でやり直し
-        if (winner === 1) cur.w = (cur.w || 0) + 1; else cur.l = (cur.l || 0) + 1;
-        if (!cur.p) { const e = D.byId.get(cur.e); if (e) cur.p = JM.region(e); }
-        cur.u = Date.now();
-        return cur;
-      });
-      const v = res.snapshot && res.snapshot.val(); if (v) { c.w = v.w; c.l = v.l; } C.header();
+      await put('jm_res/' + c.id + '/' + rid(), { e: me.e.id, n: QM.ng(myName()) || 'ななし', d: me.dir | 0, c: pol ? me.cards.join(',') : '', w: winner === 0 ? 1 : 0, t: Date.now() });
+      const v = await bump(c.id, winner); if (v) { c.w = v.w; c.l = v.l; } C.header();
     } catch (e) {}
     return note + `（この挑戦状：${recText(c)}）`;
   };
@@ -201,12 +244,13 @@
       try { localStorage.setItem('jm_name', n); } catch (e) {}
       card.querySelectorAll('button').forEach(b => { b.disabled = true; });
       try {
-        const sl = s.slots[i], d = await db();
+        const sl = s.slots[i];
+        card.querySelector('#ch-err').textContent = '置いています…';
         const id = rid(), tok = 't' + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
         const v = { e: sl.e.id, n: QM.ng(n) || 'ななし', d: sl.dir | 0, c: (s.pol === 'pol' ? sl.cards : []).join(','), m: s.pol === 'pol' ? 'pol' : 'nopol', t: { '.sv': 'timestamp' }, w: 0, l: 0, p: JM.region(sl.e) };
-        await d.ref('jm_chal/' + id).set(v);
+        await put('jm_chal/' + id, v);
         const my = mine(); my.push(id); store.set('jm_mychal', my.slice(-MINE_MAX));
-        try { await d.ref('jm_own/' + id).set(tok); const tk = toks(); tk[id] = tok; store.set('jm_mytok', tk); } catch (e) {}
+        try { await put('jm_own/' + id, tok); const tk = toks(); tk[id] = tok; store.set('jm_mytok', tk); } catch (e) {}
         const sn = store.get('jm_seen', {}); sn[id] = Date.now(); store.set('jm_seen', sn);
         cache = null;
         const dlg = QM.dialog(`<h3>挑戦状を置きました！</h3><p><b>${esc(D.fname(sl.e))}</b>（向き ${sl.dir * 45}°・${esc(polText(v))}）</p>
@@ -335,7 +379,7 @@
     dlg.querySelector('#rt-ok').onclick = async () => {
       const tok = toks()[id]; if (!tok) return;
       dlg.querySelectorAll('button').forEach(b => { b.disabled = true; });
-      try { const d = await db(); await d.ref('jm_retire/' + id + '/' + tok).set(true); retired = null; cache = null; QM.close(); JM.toast('引退させました'); C.openMine(); C.mineSummary(true); }
+      try { await put('jm_retire/' + id + '/' + tok, true); retired = null; cache = null; QM.close(); JM.toast('引退させました'); C.openMine(); C.mineSummary(true); }
       catch (er) { dlg.querySelectorAll('button').forEach(b => { b.disabled = false; }); dlg.querySelector('#rt-err').textContent = 'できませんでした。通信を確認してね'; }
     };
   }
@@ -346,7 +390,7 @@
     const tk = toks(), v = ids.map(id => id + ':' + (tk[id] || '')).join(',');
     let code = ''; for (let i = 0; i < 10; i++) code += CODE_CH[Math.floor(Math.random() * CODE_CH.length)];
     try {
-      const d = await db(); await d.ref('jm_xfer/' + code).set({ v, t: Date.now() });
+      await put('jm_xfer/' + code, { v, t: Date.now() });
       const shown = code.slice(0, 5) + '-' + code.slice(5);
       const dlg = QM.dialog(`<h3>引き継ぎコード</h3><p class="xf-code">${shown}</p><p class="qm-sub">新しい端末の「あなたの挑戦状」→「コードを入れる」に入力すると、挑戦状（${ids.length}枚）を引き継げます。<br>コードは人に教えないでください（引退もできてしまいます）。</p><button class="qm-b" id="xf-cp">コピー</button><button class="qm-b sub" id="xf-ok">とじる</button>`);
       dlg.querySelector('#xf-cp').onclick = () => copy(shown);
