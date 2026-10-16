@@ -317,7 +317,7 @@
   // ---------- だれかと対戦（ランダム対戦） ----------
   function setupQM() {
     QM.setup({
-      game: 'jimoto', ver: 'v4', name: '地元の最強',
+      game: 'jimoto', ver: 'v5', name: '地元の最強',
       getDb: () => JM.getDb(), anchor: '#btn-online', anchorWhere: 'before', btnClass: 'btn big hot', nextClass: 'btn', nameKey: 'jm_name',
       join: (code, name) => { S().unlock && S().unlock(); JM.Net.join(name, code); },
       cpu: () => JM.Chal.open(true), cpuLabel: '挑戦状と戦いながら待つ',

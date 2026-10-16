@@ -139,11 +139,27 @@
   JM.HPA = 80; JM.DMG = 0.08;
   JM.CASTLE_MAX = 0.22;              // 城下町保存：割れない中心部の広さの上限（全体に対して）
   const WORLD_AREA = 10.2;           // ならした面積（半径 1.8 の円くらい）
+  const R_FIT = 5.0;                 // 形の大きさの上限（重心からいちばん遠い点まで）。土俵の半径は 7.2
   class Body {
     constructor(def, side) {
       // def: { key, parts(int配列：面積 1000^2), st: {hp,atk,def,shp,spd} 0-100, pol: [政策のキー] }
       this.def = def; this.side = side;
-      const s = Math.sqrt(WORLD_AREA) / 1000;
+      let s = Math.sqrt(WORLD_AREA) / 1000;
+      // 細長い・島が散らばる形（チリ、ノルウェー、マーシャル諸島など）は、土俵に入りきらず押し合ったまま動けなくなる。
+      // 重心からいちばん遠い点が R_FIT をこえる形だけ小さくする（体力と重さは、もとの大きさの分のまま）
+      this.big = 1;
+      {
+        let A = 0, cx = 0, cy = 0;
+        for (const p of def.parts) {   // 輪の向きがばらばらでも重心が正しく出るよう、部分ごとに向きをそろえる
+          let a = 0, x = 0, y = 0;
+          for (let i = 0, n = p.length; i < n; i += 2) { const j = (i + 2) % n, c = p[i] * p[j + 1] - p[j] * p[i + 1]; a += c; x += (p[i] + p[j]) * c; y += (p[i + 1] + p[j + 1]) * c; }
+          const sg = a < 0 ? -1 : 1; A += a * sg; cx += x * sg; cy += y * sg;
+        }
+        if (A) { cx /= 3 * A; cy /= 3 * A; }
+        let r2 = 0; for (const p of def.parts) for (let i = 0; i < p.length; i += 2) r2 = Math.max(r2, sq(p[i] - cx) + sq(p[i + 1] - cy));
+        const r = Math.sqrt(r2) * s;
+        if (r > R_FIT) { const k = R_FIT / r; s *= k; this.big = 1 / (k * k); }
+      }
       const parts = def.parts.map(p => p.map(v => v * s));
       this.frags = makeFragments(parts, def.key);
       // 重心を原点に
@@ -157,8 +173,8 @@
       this.hpk = 0.55 + st.hp / 100 * 1.25;
       this.acc = 9 + st.spd / 100 * 9; this.vmax = 6 + st.spd / 100 * 5;
       this.sharpK = 1.0 + st.shp / 100 * 4.2; this.shpK = 0.85 + st.shp / 100 * 0.35;
-      this.massK = 0.8 + st.atk / 100 * 0.6;
-      for (const f of this.frags) { f.hp = f.a * JM.HPA * this.hpk; f.max = f.hp; f.alive = true; f.core = false; }
+      this.massK = (0.8 + st.atk / 100 * 0.6) * this.big;
+      for (const f of this.frags) { f.hp = f.a * JM.HPA * this.hpk * this.big; f.max = f.hp; f.alive = true; f.core = false; }
       this.p = new Set(def.pol || []);
       // 城下町保存：真ん中の欠片は割れない
       // ※割れない部分は「面積で全体の22%まで」。欠片の数で決めると、形によっては割れない部分が35%をこえて、絶対に負けなくなってしまう
@@ -267,7 +283,10 @@
       if (Math.sqrt(sq(A.x - B.x) + sq(A.y - B.y)) > 9) return;
       const cs = [];
       this.points(A, B, cs, 0); this.points(B, A, cs, 1);
-      if (!cs.length) return;
+      if (!cs.length) { this.press = 0; return; }
+      // ふれたまま強く当たらない時間が続いたら、両方いったん下がる（押し合ったまま止まらないように）
+      this.press = (this.press || 0) + 1;
+      if (this.press > 180) { this.press = 0; for (const o of [A, B]) { o.mode = 1; o.modeT = 0.6; } }
       // 深い順に4つまで（同じ深さなら、作られた順。点対称のときも同じ順になるよう A,B を交互に）
       cs.sort((p, q) => q.d - p.d || p.o - q.o);
       const use = cs.slice(0, 4);
@@ -293,7 +312,7 @@
         const ua = Math.max(0, vax * nx + vay * ny), ub = Math.max(0, -(vbx * nx + vby * ny)), us = ua + ub || 1;
         if (-vn > 1.2) this.damage(use, -vn, px, py, [ua / us, ub / us]);
         // 当たったら少し下がる
-        if (-vn > 1.2) for (const o of [A, B]) { o.mode = 1; o.modeT = 0.45; }
+        if (-vn > 1.2) { this.press = 0; for (const o of [A, B]) { o.mode = 1; o.modeT = 0.45; } }
       }
     }
     // o の頂点が e の欠片に入っている点を集める
@@ -360,11 +379,16 @@
       const [lx, ly] = o.toLocal(px, py), R = 1.15, ws = [];
       let tw = 0;
       for (let i = 0; i < o.frags.length; i++) {
-        const f = o.frags[i]; if (!f.alive) continue;
+        const f = o.frags[i]; if (!f.alive || f.core) continue;   // 城下町の割れない部分にはダメージを分けない（吸われて減らなくなるため）
         const d = Math.sqrt(sq(f.cx - lx) + sq(f.cy - ly)); if (d > R) continue;
         const w = (1 - d / R) * (1 - d / R); ws.push([i, w]); tw += w;
       }
-      if (!tw) return 0;
+      if (!tw) {
+        // 近くが割れない部分だけのときは、いちばん近い割れる欠片に当てる
+        let bi = -1, bd = 1e9;
+        for (let i = 0; i < o.frags.length; i++) { const f = o.frags[i]; if (!f.alive || f.core) continue; const d = sq(f.cx - lx) + sq(f.cy - ly); if (d < bd) { bd = d; bi = i; } }
+        if (bi < 0) return 0; ws.push([bi, 1]); tw = 1;
+      }
       let broken = 0; const brk = [];
       for (const [i, w] of ws) { const f = o.frags[i]; if (f.core) continue; f.hp -= dmg * w / tw; if (f.hp <= 0) { f.alive = false; brk.push(i); broken += f.a; } }
       if (!brk.length) return 0;
@@ -396,7 +420,7 @@
     heal(o, amt) {
       let need = []; for (const f of o.frags) if (f.alive && f.hp < f.max) need.push(f);
       need.sort((p, q) => (p.hp / p.max) - (q.hp / q.max) || p.seed - q.seed);
-      let left = amt * JM.HPA * o.hpk;
+      let left = amt * JM.HPA * o.hpk * o.big;
       for (const f of need) { const add = Math.min(left, f.max - f.hp); f.hp += add; left -= add; if (left <= 0) break; }
     }
     // 結果の要約（オンラインで両方の画面の結果が同じか確かめる）
