@@ -231,3 +231,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .bz-w > span { white-space: nowrap; }
 .bz-info small b { word-break: break-all; }
 .mc-note { flex-basis: 100%; font-size: 11px; color: #8a7a65; font-weight: 500; }
+/* スマホで2回つづけてタップしても拡大しないように（スクロールはそのままできる） */
+html, body, * { touch-action: manipulation; }
