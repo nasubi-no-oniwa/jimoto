@@ -94,26 +94,33 @@
     for (let s = 0; s < ns; s++) {
       const sx = seeds[2 * s], sy = seeds[2 * s + 1];
       // ボロノイの領域（凸）を各部分に当てて切る
-      const planes = [];
+      const planes = [], far = [];
       for (let t = 0; t < ns; t++) {
         if (t === s) continue; const tx = seeds[2 * t], ty = seeds[2 * t + 1], dx = tx - sx, dy = ty - sy;
-        if (dx * dx + dy * dy > sp * sp * 9) continue;
-        planes.push([dx, dy, (dx * (sx + tx) + dy * (sy + ty)) / 2, t]);
+        (dx * dx + dy * dy > sp * sp * 9 ? far : planes).push([dx, dy, (dx * (sx + tx) + dy * (sy + ty)) / 2, t]);
       }
       parts.forEach((p, pi) => {
         let pts = Array.from(p), tags = new Array(p.length / 2).fill(-1), vsh = Array.from(sharpOf[pi]);
         // 頂点のとがりは、頂点の位置で引き継ぐ（切ってできた点は 0）
         let shp = vsh;
-        for (const [nx, ny, d, t] of planes) {
-          const out = [], ot = [], os = [], n = pts.length / 2; if (!n) break;
-          for (let i = 0; i < n; i++) {
-            const j = (i + 1) % n, ax = pts[2 * i], ay = pts[2 * i + 1], bx = pts[2 * j], by = pts[2 * j + 1];
-            const da = nx * ax + ny * ay - d, db = nx * bx + ny * by - d;
-            if (da <= 0) { out.push(ax, ay); ot.push(tags[i]); os.push(shp[i]); }
-            if ((da <= 0) !== (db <= 0)) { const k = da / (da - db); out.push(ax + (bx - ax) * k, ay + (by - ay) * k); ot.push(da <= 0 ? t : tags[i]); os.push(0); }
+        const clip = list => {
+          for (const [nx, ny, d, t] of list) {
+            const out = [], ot = [], os = [], n = pts.length / 2; if (!n) break;
+            for (let i = 0; i < n; i++) {
+              const j = (i + 1) % n, ax = pts[2 * i], ay = pts[2 * i + 1], bx = pts[2 * j], by = pts[2 * j + 1];
+              const da = nx * ax + ny * ay - d, db = nx * bx + ny * by - d;
+              if (da <= 0) { out.push(ax, ay); ot.push(tags[i]); os.push(shp[i]); }
+              if ((da <= 0) !== (db <= 0)) { const k = da / (da - db); out.push(ax + (bx - ax) * k, ay + (by - ay) * k); ot.push(da <= 0 ? t : tags[i]); os.push(0); }
+            }
+            pts = out; tags = ot; shp = os;
           }
-          pts = out; tags = ot; shp = os;
-        }
+        };
+        clip(planes);
+        // 欠片が種から 1.5 マスより遠くまで広がっているときだけ、遠い種でも切る。
+        // （離れた島の種の領域が本土全体にかぶると「割れない大きな欠片」ができて無敵になる。北海道など）
+        // ふつうの欠片は遠い種では切れないので、前と同じ形・同じ結果のまま
+        let ext = false; for (let i = 0; i < pts.length; i += 2) if (sq(pts[i] - sx) + sq(pts[i + 1] - sy) > sp * sp * 2.25) { ext = true; break; }
+        if (ext) clip(far);
         if (pts.length < 6) return;
         const pr = polyProps(pts); if (pr.a < area * 0.0015) return;
         frags.push({ seed: s, part: pi, poly: pts, tags, sharp: shp, a: pr.a, cx: pr.cx, cy: pr.cy, inertia: pr.i });
