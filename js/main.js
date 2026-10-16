@@ -35,6 +35,7 @@
   // ---------- 1つの枠を描く ----------
   function renderSlot(i) {
     const el = $('slot' + i), s = st.slots[i], side = ['左・赤', '右・青'][i];
+    R.freeIn(el);   // 前の絵のキャンバスを片づけてから描きなおす
     if (st.mode !== 'local' && i !== st.my && !st.reveal) {
       el.innerHTML = `<span class="sl-side">${side}</span><div class="hidden-foe">${st.mode === 'watch' ? 'ふたりが準備中…' : (st.foeReady ? 'あいては準備OK！' : 'あいてが準備中…')}<br>（公開まで見えません）</div>`;
       return;
@@ -78,12 +79,12 @@
     if (ed) h += `<div class="sl-btns"><button class="btn sm" data-pick="${i}">べつの市町村</button><button class="btn sm" data-rand="${i}">おまかせ</button></div>`;
     el.innerHTML = h;
     const cv = el.querySelector('[data-shape]'); if (cv && s.parts) {
-      const c = cv.getContext('2d'); c.clearRect(0, 0, 240, 240);
+      const c = cv.getContext('2d'); if (c) { c.clearRect(0, 0, 240, 240);
       R.shapeIcon(c, s.parts, 120, 120, 170, s.dir, i, { facing: true, lw: 3 });
       // 相手のほうの矢印
-      c.fillStyle = 'rgba(60,40,20,.55)'; c.font = '900 26px sans-serif'; c.textAlign = i ? 'left' : 'right'; c.fillText(i ? '◀ 相手' : '相手 ▶', i ? 8 : 232, 228);
+      c.fillStyle = 'rgba(60,40,20,.55)'; c.font = '900 26px sans-serif'; c.textAlign = i ? 'left' : 'right'; c.fillText(i ? '◀ 相手' : '相手 ▶', i ? 8 : 232, 228); }
     }
-    const rv = el.querySelector('[data-radar]'); if (rv) { const c = rv.getContext('2d'); c.clearRect(0, 0, 300, 270); c.save(); c.scale(2, 2); R.radar(c, 75, 70, 48, e.st, usePol ? comp.add : null, { fs: 10 }); c.restore(); }
+    const rv = el.querySelector('[data-radar]'); if (rv && rv.getContext('2d')) { const c = rv.getContext('2d'); c.clearRect(0, 0, 300, 270); c.save(); c.scale(2, 2); R.radar(c, 75, 70, 48, e.st, usePol ? comp.add : null, { fs: 10 }); c.restore(); }
   }
   function renderSlots() { renderSlot(0); renderSlot(1); updateFight(); }
   function updateFight() {
@@ -217,7 +218,8 @@
         await JM.drawResultImage(cv, { m: st.live, r, e: [st.slots[0].e, st.slots[1].e], cards: [st.slots[0].cards, st.slots[1].cards], pol: st.pol === 'pol', chal: st.chal, url: URL_GAME });
         st.imgReady = true;
       }
-      $('iv-img').src = cv.toDataURL('image/png');
+      const old = $('iv-img').src; if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+      $('iv-img').src = await new Promise(res => cv.toBlob(b => res(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')), 'image/png'));
       $('imgview').classList.add('on');
     } catch (e) { toast('画像を作れませんでした'); }
     btn.disabled = false; btn.textContent = t0;
@@ -247,7 +249,7 @@
     if (scr && scr.id === 's-battle' && st.live) {
       liveStep(dt);
       const m = st.live;
-      R.draw(m, { names: [shortName(st.slots[0].e), shortName(st.slots[1].e)], dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 });
+      try { R.draw(m, { names: [shortName(st.slots[0].e), shortName(st.slots[1].e)], dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 }); } catch (e) { if (!st.drawErr) { st.drawErr = 1; console.error(e); } }
       for (let i = 0; i < 2; i++) { const r = (i ? m.B : m.A).ratio(); $('hg' + i).style.width = Math.max(0, Math.min(100, (r - 0) * 100)) + '%'; $('hv' + i).textContent = Math.round(r * 100) + '%'; }
       $('clock').textContent = Math.max(0, Math.ceil(JM.TMAX - m.t));
     } else if (st.idle) { idleDraw(dt); }
@@ -256,7 +258,7 @@
   function idleDraw(dt) {
     const m = st.idle; let n = 0; st.idleAcc = (st.idleAcc || 0) + dt * 0.7;
     while (st.idleAcc >= JM.DT && n < 20) { m.tick(); st.idleAcc -= JM.DT; n++; for (const e of m.ev) if (e.k === 'hit') R.hit(e); m.ev.length = 0; }
-    R.draw(m, { dt });
+    try { R.draw(m, { dt }); } catch (e) {}
     if (m.over) { st.idleWait = (st.idleWait || 0) + dt; if (st.idleWait > 2) { st.idleWait = 0; newIdle(); } }
   }
   async function newIdle() {

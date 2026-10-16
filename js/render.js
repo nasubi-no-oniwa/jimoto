@@ -7,27 +7,40 @@
   const COL = [{ f: '#f06a5a', d: '#8e1d14', l: '#ffd9d2' }, { f: '#5b8be0', d: '#16357a', l: '#d9e6ff' }];
   R.COL = COL;
   let cv, g, W = 0, H = 0, dpr = 1;
-  R.init = function (canvas) { cv = canvas; g = cv.getContext('2d'); R.resize(); window.addEventListener('resize', R.resize); };
+  let main = null;
+  R.init = function (canvas) {
+    main = cv = canvas; g = cv.getContext('2d'); R.resize(); window.addEventListener('resize', R.resize);
+    // 端末によっては、描く場所（キャンバス）がこわれることがある → 作り直す
+    canvas.addEventListener('contextlost', ev => { ev.preventDefault(); paper = null; });
+    canvas.addEventListener('contextrestored', () => { g = canvas.getContext('2d'); paper = null; R.resize(); });
+  };
   R.resize = function () {
     if (!cv) return; dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = cv.clientWidth; H = cv.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    W = cv.clientWidth; H = cv.clientHeight; cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
   };
+  // 使い終わったキャンバスを片づける（スマホはキャンバスのメモリに上限があり、ためると何も描けなくなる）
+  R.free = function (c) { try { if (c && c.getContext) { c.width = 0; c.height = 0; } } catch (e) {} };
+  R.freeIn = function (el) { if (el) for (const c of el.querySelectorAll('canvas')) R.free(c); };
   // 紙のもよう（1回だけ作る）
   let paper = null;
+  let paperCv = null;
   function paperPat() {
     if (paper) return paper;
-    const c = document.createElement('canvas'); c.width = c.height = 256; const p = c.getContext('2d');
+    const c = paperCv || (paperCv = document.createElement('canvas')); c.width = c.height = 256; const p = c.getContext('2d');
+    if (!p) return '#f3ead6';
     p.fillStyle = '#f3ead6'; p.fillRect(0, 0, 256, 256);
     let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
     for (let i = 0; i < 900; i++) { p.fillStyle = `rgba(120,90,50,${0.02 + rnd() * 0.04})`; p.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 2, 1 + rnd() * 2); }
     for (let i = 0; i < 40; i++) { p.strokeStyle = `rgba(150,110,60,${0.03 + rnd() * 0.04})`; p.beginPath(); const x = rnd() * 256, y = rnd() * 256; p.moveTo(x, y); p.lineTo(x + (rnd() - 0.5) * 60, y + (rnd() - 0.5) * 60); p.stroke(); }
-    paper = g.createPattern(c, 'repeat'); return paper;
+    paper = g.createPattern(c, 'repeat') || '#f3ead6'; return paper;
   }
   R.fx = []; R.shake = 0; R.flash = 0;
   // 1フレーム描く。m：JM.Match、o：{ names, slow }
   R.draw = function (m, o = {}) {
     if (!g) return;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 画面の大きさが変わっていたら合わせる（アプリ内ブラウザなどで、開いた直後の大きさが 0 のことがある）
+    if (cv === main && (cv.clientWidth !== W || cv.clientHeight !== H)) R.resize();
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; if (g.setLineDash) g.setLineDash([]);
     // まわり
     g.fillStyle = '#2a211b'; g.fillRect(0, 0, W, H);
     const top = o.top || 0, bot = o.bot || 0, hh = H - top - bot;
@@ -37,7 +50,9 @@
     // 土俵（紙の地図）
     const ar = JM.R_ARENA * sc;
     g.fillStyle = '#3b2f26'; g.beginPath(); g.arc(0, 0, ar + 14, 0, Math.PI * 2); g.fill();
-    g.fillStyle = paperPat(); g.beginPath(); g.arc(0, 0, ar, 0, Math.PI * 2); g.fill();
+    // 紙：まず紙の色でぬってから、もようを重ねる（もようが作れない端末でも、紙は必ず見える）
+    g.fillStyle = '#f3ead6'; g.beginPath(); g.arc(0, 0, ar, 0, Math.PI * 2); g.fill();
+    try { const pt = paperPat(); if (pt && pt !== '#f3ead6') { g.fillStyle = pt; g.fill(); } } catch (e) { paper = '#f3ead6'; }
     g.save(); g.beginPath(); g.arc(0, 0, ar, 0, Math.PI * 2); g.clip();
     // 経線・緯線
     g.strokeStyle = 'rgba(80,110,140,.16)'; g.lineWidth = 1;
@@ -47,7 +62,7 @@
     for (const s of [-1, 1]) { g.beginPath(); g.moveTo(s * ar * 0.12, -ar * 0.09); g.lineTo(s * ar * 0.12, ar * 0.09); g.stroke(); }
     g.restore();
     g.strokeStyle = '#7a5a3a'; g.lineWidth = 6; g.beginPath(); g.arc(0, 0, ar, 0, Math.PI * 2); g.stroke();
-    g.setLineDash([10, 8]); g.strokeStyle = 'rgba(122,90,58,.45)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, ar - 9, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    if (g.setLineDash) { g.setLineDash([10, 8]); g.strokeStyle = 'rgba(122,90,58,.45)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, ar - 9, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
     // 欠片（飛んでいくもの）
     for (const d of m.debris) {
       const al = Math.max(0, 1 - d.t / 2.5); if (al <= 0) continue;
@@ -55,7 +70,7 @@
       fragPath(d.f, sc); g.fillStyle = COL[d.side].f; g.fill(); g.strokeStyle = COL[d.side].d; g.lineWidth = 1.2; g.stroke(); g.restore();
     }
     // 体
-    for (const b of [m.A, m.B]) drawBody(b, sc);
+    for (const b of [m.A, m.B]) { try { drawBody(b, sc); } catch (e) { try { g.restore(); } catch (e2) {} } }
     // 名前
     if (o.names) for (const b of [m.A, m.B]) {
       const t = o.names[b.side]; if (!t) continue;
@@ -80,7 +95,8 @@
   R.snapshot = function (m, size, ev) {
     const keep = { cv, g, W, H, dpr, fx: R.fx, shake: R.shake, flash: R.flash, sc: R.sc, cx: R.cx, cy: R.cy };
     const c = document.createElement('canvas'); c.width = c.height = size;
-    cv = c; g = c.getContext('2d'); W = H = size; dpr = 1;
+    const cg = c.getContext('2d'); if (!cg) return null;   // 作れない端末では null（画面の絵を使ってもらう）
+    cv = c; g = cg; W = H = size; dpr = 1;
     R.fx = []; R.shake = 0; R.flash = 0;
     if (ev) { R.hit(ev); R.shake = 0; R.flash = 0; for (const f of R.fx) f.t = f.kind === 'ring' ? 0.05 : 0.07; }
     const deb = m.debris; m.debris = deb.map(d => { const t = 0.16; return Object.assign({}, d, { x: d.x + d.vx * t, y: d.y + d.vy * t, a: d.a + d.w * t, t: d.t + 0.1 }); });
@@ -90,7 +106,7 @@
       cv = keep.cv; g = keep.g; W = keep.W; H = keep.H; dpr = keep.dpr; R.fx = keep.fx; R.shake = keep.shake; R.flash = keep.flash; R.sc = keep.sc; R.cx = keep.cx; R.cy = keep.cy;
       c.sc = out.sc;
     }
-    return c;
+    return c;   // 使い終わったら R.free(c) で片づける
   };
   function fragPath(f, sc) {
     g.beginPath(); const p = f.poly;

@@ -276,13 +276,13 @@
   // ---------- あなたの挑戦状（画面） ----------
   function shapeCanvas(e, dir, side, px) {
     const cv = document.createElement('canvas'); cv.width = cv.height = px * 2; cv.style.width = cv.style.height = px + 'px'; cv.className = 'mc-shape';
-    D.shape(e.id).then(parts => { const g = cv.getContext('2d'); JM.R.shapeIcon(g, parts, px, px, px * 1.6, dir, side, { lw: 2.5 }); }).catch(() => {});
+    D.shape(e.id).then(parts => { const g = cv.getContext('2d'); if (g) JM.R.shapeIcon(g, parts, px, px, px * 1.6, dir, side, { lw: 2.5 }); }).catch(() => {});
     return cv;
   }
   const ago = t => { const m = (Date.now() - t) / 60000; return m < 60 ? Math.max(1, Math.round(m)) + '分前' : m < 1440 ? Math.round(m / 60) + '時間前' : Math.round(m / 1440) + '日前'; };
   C.openMine = async function () {
     JM.show('s-mine');
-    const box = $('mine-list'); box.innerHTML = '<p class="mc-empty">読みこみ中…</p>';
+    const box = $('mine-list'); JM.R.freeIn(box); box.innerHTML = '<p class="mc-empty">読みこみ中…</p>';
     const newIds = new Set(news.map(r => r.id)); markSeen();
     const ids = mine().slice().reverse(), tk = toks();
     if (!ids.length) { box.innerHTML = '<p class="mc-empty">まだ挑戦状を置いていません。<br>試合のあとの「挑戦状を置く」から置けます。</p>'; return; }
@@ -383,7 +383,7 @@
     if (!key) { key = store.get('jm_bzreg', null); const e0 = st().slots[0].e; if (!key && e0) key = JM.region(e0); if (!key || !R.all.some(r => r.k === key)) key = 'J13'; }
     sel.value = key;
     const tokn = ++bzToken, box = $('bz-list'), stt = $('bz-st');
-    box.innerHTML = ''; stt.textContent = '読みこみ中…';
+    JM.R.freeIn(box); box.innerHTML = ''; stt.textContent = '読みこみ中…';
     let v, ret;
     try { [v, ret] = await Promise.all([rest('jm_chal', { orderBy: 'p', equalTo: key }), retiredSet()]); }
     catch (e) { stt.textContent = '読みこめませんでした。通信を確認してね'; return; }
@@ -405,7 +405,7 @@
     for (const c of cand) { c.vw = 0; c.vi = 0; }
     const draw = () => {
       const show = cand.filter(c => c.vw > 0).sort((a, b) => b.vw - a.vw || (b.w || 0) - (a.w || 0) || a.t - b.t).slice(0, 10);
-      box.innerHTML = '';
+      JM.R.freeIn(box); box.innerHTML = '';
       if (!show.length) { if (!busy) box.innerHTML = `<p class="mc-empty">この30日、「${esc(R.name(key))}」で挑戦者を倒した挑戦状はまだありません。</p>`; return; }
       show.forEach((c, i) => {
         const e = D.byId.get(c.e), row = document.createElement('div'); row.className = 'bz-row' + (i === 0 ? ' top' : '');

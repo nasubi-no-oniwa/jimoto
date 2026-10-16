@@ -67,15 +67,28 @@
     c.setTransform(1, 0, 0, 1, 0, 0); c.textBaseline = 'middle';
     c.fillStyle = '#17110d'; c.fillRect(0, 0, W, H);
     // ---- 左：決着の瞬間 ----
-    const SNAP = 900, snap = R.snapshot(m, SNAP, r.endBy === 'break' ? r.lastEv : null), sc = snap.sc;
+    const SNAP = 900;
+    let snap = null; try { snap = R.snapshot(m, SNAP, r.endBy === 'break' ? r.lastEv : null); } catch (e) { snap = null; }
     const hx = r.endBy === 'break' && r.lastEv ? r.lastEv.x : (m.A.x + m.B.x) / 2, hy = r.endBy === 'break' && r.lastEv ? r.lastEv.y : (m.A.y + m.B.y) / 2;
     const zoom = 0.85, sw = LW / zoom, sh = H / zoom;
-    let sx = SNAP / 2 + hx * sc - sw / 2, sy = SNAP / 2 + hy * sc - sh / 2;
-    sx = Math.max(0, Math.min(SNAP - sw, sx)); sy = Math.max(0, Math.min(SNAP - sh, sy));
+    let fx = LW / 2, fy = H / 2;
     c.save(); c.beginPath(); c.rect(0, 0, LW, H); c.clip();
-    c.drawImage(snap, sx, sy, sw, sh, 0, 0, LW, H);
+    if (snap) {
+      const sc = snap.sc;
+      let sx = SNAP / 2 + hx * sc - sw / 2, sy = SNAP / 2 + hy * sc - sh / 2;
+      sx = Math.max(0, Math.min(SNAP - sw, sx)); sy = Math.max(0, Math.min(SNAP - sh, sy));
+      c.drawImage(snap, sx, sy, sw, sh, 0, 0, LW, H);
+      R.free(snap);
+      fx = (SNAP / 2 + hx * sc - sx) * zoom; fy = (SNAP / 2 + hy * sc - sy) * zoom;
+    } else {
+      // 絵を作れない端末：試合画面の絵（土俵のまわり）をそのまま使う
+      const a = document.getElementById('arena');
+      if (a && a.width && R.sc) {
+        const k = a.width / a.clientWidth, s2 = R.sc * JM.R_ARENA * 2.1 * k, cx = R.cx * k, cy = R.cy * k;
+        try { c.drawImage(a, cx - s2 / 2, cy - s2 / 2, s2, s2, LW / 2 - H * 0.55, -H * 0.05, H * 1.1, H * 1.1); } catch (e) {}
+      }
+    }
     // 集中線（当たった所から）
-    const fx = (SNAP / 2 + hx * sc - sx) * zoom, fy = (SNAP / 2 + hy * sc - sy) * zoom;
     if (r.winner >= 0) {
       c.save(); c.translate(fx, fy); c.globalAlpha = 0.16; c.fillStyle = '#fff';
       for (let i = 0; i < 72; i++) { const an = i / 72 * Math.PI * 2 + (i % 3) * 0.021, r0 = 240 + (i * 37 % 70); c.beginPath(); c.moveTo(Math.cos(an) * r0, Math.sin(an) * r0); c.lineTo(Math.cos(an + 0.011) * 1000, Math.sin(an + 0.011) * 1000); c.lineTo(Math.cos(an - 0.011) * 1000, Math.sin(an - 0.011) * 1000); c.fill(); }
