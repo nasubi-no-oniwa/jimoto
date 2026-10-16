@@ -18,6 +18,10 @@
     for (let i = 0; i < n; i++) {
       const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '', nw: idx.nw ? idx.nw[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
+      // 海外の州・都市・町は、国名を県名と同じ位置に出す（例：トルコ共和国 ムシュ県）
+      if (e.p >= 100) { e.pn = e.c; e.c = ''; }
+      // どこの何か（例：トルコ共和国の州・県、イタリア共和国の町）
+      e.where = e.p >= 100 ? e.pn + 'の' + (e.id[0] === 'C' ? '都市' : e.id[0] === 'T' ? '町' : e.pn === '日本国' ? '都道府県' : '州・県') : e.p === 48 ? e.c : '';
       e.w = e.p >= 48;   // 世界（48：国・地域と昔の国、100〜：国ごとの州・省・県）
       // よみが名前と同じ（カタカナの国名など）なら、よみは出さない
       e.kd = norm(e.k) === norm(e.n) ? '' : e.k;
@@ -41,6 +45,8 @@
     return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/ゖ/g, 'け').replace(/ゕ/g, 'か');
   }
   D.norm = norm;
+  // 画面に出す名前（県名・国名つき）
+  D.fname = e => e.p >= 100 ? e.pn + ' ' + e.n : e.pn + e.n;
   // 合併先をたどって「今は〇〇」を出す
   // 役場があった場所が、今どの市町村・区に入っているか（nw）を先に使う。なければ合併先をたどる
   D.now = function (e) {

@@ -116,7 +116,7 @@
         await ref.set(v);
         const my = mine(); my.push(id); store.set('jm_mychal', my.slice(-MINE_MAX));
         cache = null;
-        QM.dialog(`<h3>挑戦状を置きました！</h3><p><b>${esc(sl.e.pn + sl.e.n)}</b>（向き ${sl.dir * 45}°${v.c ? '・' + esc(v.c.split(',').map(k => JM.POL[k].n).join('・')) : ''}）</p><p class="qm-sub">だれかが挑戦すると、タイトル画面で成績が見られます。</p><button class="qm-b" id="ch-ok">OK</button>`).querySelector('#ch-ok').onclick = () => QM.close();
+        QM.dialog(`<h3>挑戦状を置きました！</h3><p><b>${esc(JM.D.fname(sl.e))}</b>（向き ${sl.dir * 45}°${v.c ? '・' + esc(v.c.split(',').map(k => JM.POL[k].n).join('・')) : ''}）</p><p class="qm-sub">だれかが挑戦すると、タイトル画面で成績が見られます。</p><button class="qm-b" id="ch-ok">OK</button>`).querySelector('#ch-ok').onclick = () => QM.close();
         C.mineSummary(true);
       } catch (e) {
         card.querySelectorAll('button').forEach(b => { b.disabled = false; });

@@ -52,7 +52,7 @@
           ${ed ? `<div class="dir"><button class="btn sm" data-rot="${i}" data-d="-1">⟲</button><button class="btn sm" data-rot="${i}" data-d="1">⟳</button></div>` : ''}
           <div class="dir-lab">向き ${s.dir * 45}°</div></div>
         <div class="sl-info">
-          <div class="sl-name"><small>${esc(e.pn)} ${esc(e.c || '')}</small>${esc(e.n)}<small>${esc(e.kd)}</small></div>
+          <div class="sl-name"><small>${esc(e.where || (e.pn + ' ' + (e.c || '')))}</small>${esc(e.n)}<small>${esc(e.kd)}</small></div>
           <span class="badge ${bd.cur ? '' : 'old'}">${esc(bd.txt)}</span>
           <div class="sl-data">${areaText(e)}<br>${popText(e)}<br>${esc(D.years(e))}</div>
         </div>
@@ -126,7 +126,7 @@
       return;
     }
     const more = D.lastCount > res.length ? `<li class="pk-note">${D.lastCount}件見つかりました。多いので最初の${res.length}件だけ出しています。空白で区切って言葉を足すと、しぼれます</li>` : '';
-    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${e.c ? '<small>' + esc(e.c) + '</small> ' : ''}${esc(e.n)}</span><span class="kn">${esc(e.kd)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
+    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${e.where ? '<small>' + esc(e.where) + '</small> ' : esc(e.pn) + ' ' + (e.c ? '<small>' + esc(e.c) + '</small> ' : '')}${esc(e.n)}</span><span class="kn">${esc(e.kd)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
   }
   // ---------- 試合 ----------
   function defOf(i) {
@@ -134,7 +134,7 @@
     return { key: s.e.id, parts: s.parts, st: comp.st, pol: usePol ? s.cards.slice() : [] };
   }
   JM.defOf = defOf;
-  function shortName(e) { return e.n; }
+  function shortName(e) { return e.p >= 100 ? e.pn + ' ' + e.n : e.n; }
   // 全部を先に計算して結果を知っておく → そのあと同じ計算を見せる
   function startBattle(fromNet) {
     if (!st.slots[0].parts || !st.slots[1].parts) { toast('形を読みこみ中です'); return; }
@@ -176,8 +176,8 @@
     const m = st.live, r = st.result;
     const e0 = st.slots[0].e, e1 = st.slots[1].e;
     let t, line;
-    if (r.winner < 0) { t = '引き分け'; line = `${e0.n} と ${e1.n} は引き分け！`; }
-    else { const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1; t = `${w.n}の勝ち！`; line = `${w.pn}${w.n}が${l.pn}${l.n}に勝った！`; }
+    if (r.winner < 0) { t = '引き分け'; line = `${D.fname(e0)} と ${D.fname(e1)} は引き分け！`; }
+    else { const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1; t = `${w.p >= 100 ? D.fname(w) : w.n}の勝ち！`; line = `${D.fname(w)}が${D.fname(l)}に勝った！`; }
     // 下剋上：もとの能力の合計がずっと下の方が勝った
     st.gk = r.winner >= 0 && (JM.statSum((r.winner ? e0 : e1).st) - JM.statSum((r.winner ? e1 : e0).st) >= JM.GEKOKUJO);
     if (st.gk) line = '【下剋上】' + line;
@@ -216,7 +216,7 @@
       c.font = '400 40px "Dela Gothic One",sans-serif'; c.fillStyle = win ? '#c0281c' : lose ? '#5a5048' : '#2a211b';
       c.fillText(r.winner < 0 ? '引き分け' : win ? '勝ち' : '負け', x, 130);
       c.font = '900 34px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = R.COL[i].d; c.fillText(e.n, x, 465);
-      c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#4a3a2a'; c.fillText(e.pn + '　' + D.badge(e).txt, x, 500);
+      c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#4a3a2a'; c.fillText((e.where || e.pn) + '　' + D.badge(e).txt, x, 500);
       c.fillText('のこり ' + Math.round(b.ratio() * 100) + '%　向き ' + s.dir * 45 + '°', x, 530);
       const pol = st.pol === 'pol' && s.cards.length ? s.cards.map(k => JM.POL[k].n).join('・') : (st.pol === 'pol' ? '政策なし' : '政策カードなしの勝負');
       c.font = '800 18px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#7a5a2a'; c.fillText(pol, x, 562);
@@ -253,7 +253,7 @@
     if (scr && scr.id === 's-battle' && st.live) {
       liveStep(dt);
       const m = st.live;
-      R.draw(m, { names: [st.slots[0].e.n, st.slots[1].e.n], dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 });
+      R.draw(m, { names: [shortName(st.slots[0].e), shortName(st.slots[1].e)], dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 });
       for (let i = 0; i < 2; i++) { const r = (i ? m.B : m.A).ratio(); $('hg' + i).style.width = Math.max(0, Math.min(100, (r - 0) * 100)) + '%'; $('hv' + i).textContent = Math.round(r * 100) + '%'; }
       $('clock').textContent = Math.max(0, Math.ceil(JM.TMAX - m.t));
     } else if (st.idle) { idleDraw(dt); }
