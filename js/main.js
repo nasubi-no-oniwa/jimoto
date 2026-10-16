@@ -27,7 +27,7 @@
     if (e.pe) return `人口 約${fmt(e.pop)}人 <span class="est">（${e.py}年ごろの推定）</span>`;
     return `人口 ${fmt(e.pop)}人（${e.py}年）`;
   }
-  function areaText(e) { return '面積 ' + (e.a >= 100 ? Math.round(e.a) : e.a.toFixed(1)) + 'km²'; }
+  function areaText(e) { return '面積 ' + (e.a >= 100 ? fmt(Math.round(e.a)) : e.a.toFixed(1)) + 'km²'; }
   JM.popText = popText; JM.areaText = areaText;
   const editable = i => (st.mode === 'local' && !(st.chal && i === 1)) || st.my === i;
   // ---------- 1つの枠を描く ----------
@@ -38,7 +38,7 @@
       return;
     }
     if (!s.e) {
-      el.innerHTML = `<span class="sl-side">${side}</span><div class="sl-empty"><div>市町村をえらんでください</div><div class="row"><button class="btn hot" data-pick="${i}">えらぶ</button><button class="btn" data-rand="${i}">おまかせ</button></div></div>`;
+      el.innerHTML = `<span class="sl-side">${side}</span><div class="sl-empty"><div>市町村・国をえらんでください</div><div class="row"><button class="btn hot" data-pick="${i}">えらぶ</button><button class="btn" data-rand="${i}">おまかせ</button></div></div>`;
       return;
     }
     const e = s.e, bd = D.badge(e), usePol = st.pol === 'pol';
@@ -50,7 +50,7 @@
           ${ed ? `<div class="dir"><button class="btn sm" data-rot="${i}" data-d="-1">⟲</button><button class="btn sm" data-rot="${i}" data-d="1">⟳</button></div>` : ''}
           <div class="dir-lab">向き ${s.dir * 45}°</div></div>
         <div class="sl-info">
-          <div class="sl-name"><small>${esc(e.pn)} ${esc(e.c || '')}</small>${esc(e.n)}<small>${esc(e.k)}</small></div>
+          <div class="sl-name"><small>${esc(e.pn)} ${esc(e.c || '')}</small>${esc(e.n)}<small>${esc(e.kd)}</small></div>
           <span class="badge ${bd.cur ? '' : 'old'}">${esc(bd.txt)}</span>
           <div class="sl-data">${areaText(e)}<br>${popText(e)}<br>${esc(D.years(e))}</div>
         </div>
@@ -111,7 +111,7 @@
   // ---------- 検索 ----------
   let pickFor = 0;
   function openPicker(i) {
-    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」「広島県 安芸郡」';
+    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区・国から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」「広島県 安芸郡」「フランス」「昔の国」';
     setTimeout(() => $('pk-q').focus(), 50);
   }
   function runSearch() {
@@ -124,7 +124,7 @@
       return;
     }
     const more = D.lastCount > res.length ? `<li class="pk-note">${D.lastCount}件見つかりました。多いので最初の${res.length}件だけ出しています。空白で区切って言葉を足すと、しぼれます</li>` : '';
-    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${e.c ? '<small>' + esc(e.c) + '</small> ' : ''}${esc(e.n)}</span><span class="kn">${esc(e.k)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
+    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${esc(e.pn)} ${e.c ? '<small>' + esc(e.c) + '</small> ' : ''}${esc(e.n)}</span><span class="kn">${esc(e.kd)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
   }
   // ---------- 試合 ----------
   function defOf(i) {
@@ -315,7 +315,7 @@
   // ---------- だれかと対戦（ランダム対戦） ----------
   function setupQM() {
     QM.setup({
-      game: 'jimoto', ver: 'v2', name: '地元の最強',
+      game: 'jimoto', ver: 'v3', name: '地元の最強',
       getDb: () => JM.getDb(), anchor: '#btn-online', anchorWhere: 'before', btnClass: 'btn big hot', nextClass: 'btn', nameKey: 'jm_name',
       join: (code, name) => { S().unlock && S().unlock(); JM.Net.join(name, code); },
       cpu: () => JM.Chal.open(true), cpuLabel: '挑戦状と戦いながら待つ',
@@ -332,7 +332,7 @@
     bind(); setupQM();
     $('snd-name').textContent = JM.mute && JM.mute() ? 'なし' : 'あり';
     requestAnimationFrame(frame);
-    try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }
+    try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区・国が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }
     newIdle(); await loadSlots();
   }
   JM.boot = boot;

@@ -18,6 +18,9 @@
     for (let i = 0; i < n; i++) {
       const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '', nw: idx.nw ? idx.nw[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
+      e.w = e.p === 48;   // 世界の国・地域（昔の国も）
+      // よみが名前と同じ（カタカナの国名など）なら、よみは出さない
+      e.kd = norm(e.k) === norm(e.n) ? '' : e.k;
       e.full = e.pn + ' ' + e.n;
       // 探す文字：「県＋名前」「県＋郡＋名前」「郡＋名前」「別名」のどの書き方でも見つかるように
       e.key = norm([e.pn + e.n, e.pn + (e.c || '') + e.n, (e.c || '') + e.n, e.al || ''].join('|')); e.kk = norm(e.k); e.nn = norm(e.n);
@@ -56,7 +59,7 @@
     if (now && now !== s) txt += '（今は' + (now.p !== e.p ? now.pn : '') + now.n + '）';
     return { cur: false, txt };
   };
-  D.years = e => (e.f ? e.f + '年' : '') + '〜' + (e.t ? e.t.slice(0, 4) + '年' : '');
+  D.years = e => (!e.f && !e.t) ? '' : (e.f ? e.f + '年' : '') + '〜' + (e.t ? e.t.slice(0, 4) + '年' : '');
   // 検索：空白で区切った言葉が、ぜんぶ入っているものを出す（「広島県 安芸郡」「北海道 村」「ひろしま ふちゅう」など）
   D.search = function (q, max = 80, cls) {
     const toks = String(q || '').normalize('NFKC').split(/[\s　]+/).map(norm).filter(Boolean);
