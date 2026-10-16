@@ -122,7 +122,7 @@
     if (!res.length) {
       // 階級でしぼっているせいで見つからないときは、そう伝える
       const all = st.cls !== 'all' ? D.search(q, 1, null).length : 0;
-      ul.innerHTML = all ? `<li class="pk-note">「${esc(JM.CLS[st.cls].n)}」にはありません。上で「全体の部」にすると出てきます（${D.lastCount}件）</li>` : '<li class="pk-note">見つかりませんでした。漢字・ひらがなのどちらでも、空白で区切って「広島県 安芸郡」のようにしぼれます</li>';
+      ul.innerHTML = all ? `<li class="pk-note">「${esc(JM.CLS[st.cls].n)}」にはありません。上で「全体の部」にすると出てきます（${D.lastCount}件）</li>` : '<li class="pk-note">見つかりませんでした。漢字・ひらがなのどちらでも、空白で区切って「広島県 安芸郡」のようにしぼれます。<br>樺太（敷香町など）など、戦前の外地の町村は入っていません</li>';
       return;
     }
     const more = D.lastCount > res.length ? `<li class="pk-note">${D.lastCount}件見つかりました。多いので最初の${res.length}件だけ出しています。空白で区切って言葉を足すと、しぼれます</li>` : '';
