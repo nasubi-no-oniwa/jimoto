@@ -18,7 +18,7 @@
     for (let i = 0; i < n; i++) {
       const e = { i, id: idx.id[i], n: idx.n[i], p: idx.p[i], c: idx.c[i], k: idx.k[i], f: idx.f[i], t: idx.t[i], s: idx.s[i], pop: idx.pop[i], py: idx.py[i], pe: idx.pe[i], a: idx.a[i], st: idx.st[i], ky: idx.ky[i], al: idx.al ? idx.al[i] : '', nw: idx.nw ? idx.nw[i] : '' };
       e.pn = D.pref[e.p - 1] || '';
-      e.w = e.p === 48;   // 世界の国・地域（昔の国も）
+      e.w = e.p >= 48;   // 世界（48：国・地域と昔の国、100〜：国ごとの州・省・県）
       // よみが名前と同じ（カタカナの国名など）なら、よみは出さない
       e.kd = norm(e.k) === norm(e.n) ? '' : e.k;
       e.full = e.pn + ' ' + e.n;
@@ -82,7 +82,8 @@
   // 形（県ごとのファイル）
   D.shape = async function (id) {
     const e = D.byId.get(id); if (!e) throw new Error('見つかりません');
-    const key = 'shape/' + String(e.p).padStart(2, '0') + '.json';
+    // 海外の州・都市（p≧100）は、国20か国ずつ1つのファイルにまとめている（アップロードのファイル数をおさえるため）
+    const key = e.p >= 100 ? 'shape/w' + Math.floor((e.p - 100) / 20) + '.json' : 'shape/' + String(e.p).padStart(2, '0') + '.json';
     if (!D.shapes[key]) D.shapes[key] = getJSON(key);
     const pack = await D.shapes[key];
     const enc = pack[id]; if (!enc) throw new Error('形がありません');
