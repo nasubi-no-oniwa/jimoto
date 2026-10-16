@@ -75,6 +75,23 @@
     R.shake *= 0.86;
     R.sc = sc; R.cx = cx; R.cy = cy;
   };
+  // 結果画像用：試合の今の様子を、別のキャンバス（正方形 size px）に描く。
+  // ev：最後の一撃（火花を出す）。飛んでいく欠片は少し先まで進めて、飛び散っている感じにする
+  R.snapshot = function (m, size, ev) {
+    const keep = { cv, g, W, H, dpr, fx: R.fx, shake: R.shake, flash: R.flash, sc: R.sc, cx: R.cx, cy: R.cy };
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    cv = c; g = c.getContext('2d'); W = H = size; dpr = 1;
+    R.fx = []; R.shake = 0; R.flash = 0;
+    if (ev) { R.hit(ev); R.shake = 0; R.flash = 0; for (const f of R.fx) f.t = f.kind === 'ring' ? 0.05 : 0.07; }
+    const deb = m.debris; m.debris = deb.map(d => { const t = 0.16; return Object.assign({}, d, { x: d.x + d.vx * t, y: d.y + d.vy * t, a: d.a + d.w * t, t: d.t + 0.1 }); });
+    try { R.draw(m, { dt: 0 }); } finally {
+      m.debris = deb;
+      const out = { sc: R.sc, cx: R.cx, cy: R.cy };
+      cv = keep.cv; g = keep.g; W = keep.W; H = keep.H; dpr = keep.dpr; R.fx = keep.fx; R.shake = keep.shake; R.flash = keep.flash; R.sc = keep.sc; R.cx = keep.cx; R.cy = keep.cy;
+      c.sc = out.sc;
+    }
+    return c;
+  };
   function fragPath(f, sc) {
     g.beginPath(); const p = f.poly;
     g.moveTo(p[0] * sc, p[1] * sc); for (let i = 2; i < p.length; i += 2) g.lineTo(p[i] * sc, p[i + 1] * sc); g.closePath();

@@ -139,9 +139,9 @@
   function startBattle(fromNet) {
     if (!st.slots[0].parts || !st.slots[1].parts) { toast('形を読みこみ中です'); return; }
     const a = defOf(0), b = defOf(1), d0 = st.slots[0].dir, d1 = st.slots[1].dir;
-    const pre = new JM.Match(a, b, d0, d1); let lastHit = 0;
-    while (!pre.over) { pre.tick(); for (const e of pre.ev) if (e.k === 'hit') lastHit = pre.step; pre.ev.length = 0; }
-    st.result = { winner: pre.winner, digest: pre.digest(), t: pre.t, ra: pre.A.ratio(), rb: pre.B.ratio(), endBy: pre.endBy, lastHit };
+    const pre = new JM.Match(a, b, d0, d1); let lastHit = 0, lastEv = null;
+    while (!pre.over) { pre.tick(); for (const e of pre.ev) if (e.k === 'hit') { lastHit = pre.step; lastEv = e; } pre.ev.length = 0; }
+    st.result = { winner: pre.winner, digest: pre.digest(), t: pre.t, ra: pre.A.ratio(), rb: pre.B.ratio(), endBy: pre.endBy, lastHit, lastEv, hitN: pre.hitN };
     st.live = new JM.Match(a, b, d0, d1); st.liveT = -1.4; st.acc = 0; st.done = false; st.goSaid = false; st.slow = false;
     $('hn0').textContent = shortName(st.slots[0].e); $('hn1').textContent = shortName(st.slots[1].e);
     show('s-battle'); $('result').classList.remove('on'); R.fx = [];
@@ -186,7 +186,7 @@
     if (JM.Net && st.mode !== 'local') JM.Net.finished(r);
     setTimeout(() => {
       $('res-t').innerHTML = (st.gk ? '<span class="gk">下剋上</span><br>' : '') + esc(t); $('res-line').textContent = line + (r.endBy === 'time' ? '（時間切れ判定）' : '');
-      drawResultImage(t, line);
+      prepareImage(line);
       $('res-note').textContent = st.mode === 'local' ? '同じ組み合わせ・向き・政策なら、いつでも同じ結果になります。' : (st.netNote || '');
       $('btn-chal-put').hidden = !(st.mode === 'local' && !st.chal); $('btn-chal-next').hidden = !st.chal;
       if (st.chal) { $('res-line').textContent = line + '　…成績をつけています'; JM.Chal.onResult(r.winner).then(t => { if (t) $('res-line').textContent = t; }); }
@@ -195,38 +195,32 @@
     }, 1500);
   }
   // ---------- 結果の画像 ----------
-  function drawResultImage(t, line) {
-    const cv = $('res-img'), c = cv.getContext('2d'), W = 1200, H = 675, m = st.live, r = st.result;
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    const bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#f6eedb'); bg.addColorStop(1, '#e9dcbf'); c.fillStyle = bg; c.fillRect(0, 0, W, H);
-    c.strokeStyle = 'rgba(80,110,140,.12)'; c.lineWidth = 1; for (let x = 0; x < W; x += 60) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); } for (let y = 0; y < H; y += 60) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
-    c.fillStyle = '#2a211b'; c.fillRect(0, 0, W, 84); c.fillRect(0, H - 54, W, 54);
-    c.font = '400 46px "Dela Gothic One",sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText('地元の', 28, 44); c.fillStyle = '#ffcf3a'; c.fillText('最強', 28 + c.measureText('地元の').width, 44);
-    c.font = '900 30px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#fff'; c.textAlign = 'right'; c.fillText(t, W - 28, 44);
-    if (st.gk) { c.save(); c.translate(600, 165); c.rotate(-0.08); c.fillStyle = '#ffcf3a'; c.strokeStyle = '#2a211b'; c.lineWidth = 6; c.beginPath(); c.roundRect ? c.roundRect(-140, -40, 280, 80, 14) : c.rect(-140, -40, 280, 80); c.fill(); c.stroke(); c.font = '400 54px "Dela Gothic One",sans-serif'; c.fillStyle = '#2a211b'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('下剋上！', 0, 4); c.restore(); }
-    { const cl = JM.CLS[st.cls]; c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#7a5a2a'; c.textAlign = 'center'; c.fillText(cl.n + (st.cls === 'all' ? '' : '（' + cl.t + '）'), 600, 108); }
-    const side = (i, x) => {
-      const s = st.slots[i], e = s.e, b = i ? m.B : m.A, win = r.winner === i, lose = r.winner >= 0 && !win;
-      // 最後の形（割れたあと）
-      const parts = []; for (const f of b.frags) if (f.alive) parts.push(f.poly.map(v => v * 1000));
-      c.save(); c.globalAlpha = lose ? 0.85 : 1;
-      if (parts.length) R.shapeIcon(c, parts, x, 300, 250, 0, i, { lw: 3 });
-      c.restore();
-      c.textAlign = 'center';
-      c.font = '400 40px "Dela Gothic One",sans-serif'; c.fillStyle = win ? '#c0281c' : lose ? '#5a5048' : '#2a211b';
-      c.fillText(r.winner < 0 ? '引き分け' : win ? '勝ち' : '負け', x, 130);
-      c.font = '900 34px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = R.COL[i].d; c.fillText(e.n, x, 465);
-      c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#4a3a2a'; c.fillText((e.where || e.pn) + '　' + D.badge(e).txt, x, 500);
-      c.fillText('のこり ' + Math.round(b.ratio() * 100) + '%　向き ' + s.dir * 45 + '°', x, 530);
-      const pol = st.pol === 'pol' && s.cards.length ? s.cards.map(k => JM.POL[k].n).join('・') : (st.pol === 'pol' ? '政策なし' : '政策カードなしの勝負');
-      c.font = '800 18px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#7a5a2a'; c.fillText(pol, x, 562);
-      const comp = JM.compose(e.st, st.pol === 'pol' ? s.cards : [], e.pop);
-      c.save(); R.radar(c, i ? x - 205 : x + 205, 300, 62, e.st, st.pol === 'pol' ? comp.add : null, { fs: 14 }); c.restore();
-    };
-    side(0, 300); side(1, 900);
-    c.font = '400 64px "Dela Gothic One",sans-serif'; c.fillStyle = '#ffcf3a'; c.textAlign = 'center'; c.lineWidth = 8; c.strokeStyle = '#2a211b'; c.strokeText('VS', 600, 300); c.fillText('VS', 600, 300);
-    c.font = '800 20px "M PLUS Rounded 1c",sans-serif'; c.fillStyle = '#fff'; c.textAlign = 'left'; c.fillText('#地元の最強', 24, H - 27); c.textAlign = 'right'; c.fillText(URL_GAME.replace('https://', ''), W - 24, H - 27);
-    st.shareText = `${line}\n#地元の最強\n${URL_GAME}`;
+  // 結果画像：「勝利画像を出す」を押したときに作る（決着の瞬間の絵を使うので、試合の最後の状態から描く）
+  function prepareImage(line) {
+    const r = st.result, me = st.mode === 'local' ? -1 : st.my;
+    st.imgReady = false; st.imgLine = line;
+    r.gk = st.gk;
+    const lose = me >= 0 && r.winner >= 0 && r.winner !== me;
+    $('btn-img').textContent = r.winner < 0 || lose ? '結果画像を出す' : '勝利画像を出す';
+    // 投稿文
+    const c = st.chal, tags = JM.resultTags(r, st.slots[0].e, st.slots[1].e).map(x => x.t.replace(/！$/, ''));
+    let text = (tags.length ? '【' + tags.join('・') + '】' : '') + line;
+    if (c) text += `\n${c.n}さんの挑戦状に挑戦！あなたも→ ${JM.Chal.link(c.id)}`;
+    else text += '\n' + URL_GAME;
+    st.shareText = text + '\n#地元の最強';
+  }
+  async function openImage() {
+    const r = st.result; if (!r || !st.live) return;
+    const cv = $('res-img'), btn = $('btn-img'); btn.disabled = true; const t0 = btn.textContent; btn.textContent = '画像を作っています…';
+    try {
+      if (!st.imgReady) {
+        await JM.drawResultImage(cv, { m: st.live, r, e: [st.slots[0].e, st.slots[1].e], cards: [st.slots[0].cards, st.slots[1].cards], pol: st.pol === 'pol', chal: st.chal, url: URL_GAME });
+        st.imgReady = true;
+      }
+      $('iv-img').src = cv.toDataURL('image/png');
+      $('imgview').classList.add('on');
+    } catch (e) { toast('画像を作れませんでした'); }
+    btn.disabled = false; btn.textContent = t0;
   }
   async function share() {
     const cv = $('res-img');
@@ -302,6 +296,9 @@
     $('btn-speed').onclick = () => { st.speed = st.speed === 1 ? 2 : st.speed === 2 ? 4 : 1; $('btn-speed').textContent = '×' + st.speed; };
     $('btn-skip').onclick = () => { const m = st.live; if (!m || m.over) return; while (!m.over) { m.tick(); m.ev.length = 0; } };
     $('btn-share').onclick = () => share();
+    $('btn-img').onclick = () => { S().play('ui'); openImage(); };
+    $('iv-close').onclick = () => $('imgview').classList.remove('on');
+    $('imgview').onclick = ev => { if (ev.target.id === 'imgview') $('imgview').classList.remove('on'); };
     $('btn-save').onclick = () => saveImg();
     $('btn-replay').onclick = () => { S().play('ui'); startBattle(true); };
     $('btn-change').onclick = () => { S().play('ui'); $('result').classList.remove('on'); if (st.mode === 'watch') { if (JM.Net) JM.Net.leave(); toTitle(); return; } if (st.mode !== 'local' && JM.Net) JM.Net.again(); openSetup(); };
@@ -331,11 +328,12 @@
     R.init($('arena'));
     $('cls-sel').innerHTML = JM.CLASSES.map(c => `<option value="${c.k}">${c.n}${c.k === 'all' ? '' : '（' + c.t.replace('人口', '') + '）'}</option>`).join('');
     $('cls-sel').onchange = () => { st.cls = $('cls-sel').value; store('jm_cls', st.cls); S().play('ui'); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
-    bind(); setupQM();
+    bind(); JM.Chal.bind(); setupQM();
     $('snd-name').textContent = JM.mute && JM.mute() ? 'なし' : 'あり';
     requestAnimationFrame(frame);
     try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区・国が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }
     newIdle(); await loadSlots();
+    JM.Chal.fromLink();
   }
   JM.boot = boot;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

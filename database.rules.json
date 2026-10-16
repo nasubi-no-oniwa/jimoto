@@ -812,13 +812,54 @@
     "jm_chal": {
       ".read": true,
       ".indexOn": [
-        "t"
+        "t",
+        "p"
       ],
       "$id": {
-        ".write": "$id.length <= 24 && newData.exists() && (!data.exists() || (newData.child('e').val() === data.child('e').val() && newData.child('n').val() === data.child('n').val() && newData.child('d').val() === data.child('d').val() && newData.child('c').val() === data.child('c').val() && newData.child('m').val() === data.child('m').val() && newData.child('t').val() === data.child('t').val() && ((newData.child('w').val() === data.child('w').val() + 1 && newData.child('l').val() === data.child('l').val()) || (newData.child('l').val() === data.child('l').val() + 1 && newData.child('w').val() === data.child('w').val()))))",
-        ".validate": "newData.hasChildren(['e', 'n', 'd', 'c', 'm', 't', 'w', 'l']) && newData.child('e').isString() && newData.child('e').val().length <= 16 && newData.child('n').isString() && newData.child('n').val().length <= 8 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('d').val() <= 7 && newData.child('c').isString() && newData.child('c').val().length <= 60 && (newData.child('m').val() === 'pol' || newData.child('m').val() === 'nopol') && newData.child('t').isNumber() && newData.child('t').val() <= now && newData.child('w').isNumber() && newData.child('l').isNumber() && (data.exists() || (newData.child('w').val() === 0 && newData.child('l').val() === 0))",
+        ".write": "$id.length <= 24 && newData.exists() && (!data.exists() || (newData.child('e').val() === data.child('e').val() && newData.child('n').val() === data.child('n').val() && newData.child('d').val() === data.child('d').val() && newData.child('c').val() === data.child('c').val() && newData.child('m').val() === data.child('m').val() && newData.child('t').val() === data.child('t').val() && (!data.child('p').exists() || newData.child('p').val() === data.child('p').val()) && ((newData.child('w').val() === data.child('w').val() + 1 && newData.child('l').val() === data.child('l').val()) || (newData.child('l').val() === data.child('l').val() + 1 && newData.child('w').val() === data.child('w').val())) && (!newData.child('u').exists() || (newData.child('u').val() <= now + 60000 && newData.child('u').val() >= now - 600000))))",
+        ".validate": "newData.hasChildren(['e', 'n', 'd', 'c', 'm', 't', 'w', 'l']) && newData.child('e').isString() && newData.child('e').val().length <= 16 && newData.child('n').isString() && newData.child('n').val().length <= 8 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('d').val() <= 7 && newData.child('c').isString() && newData.child('c').val().length <= 60 && (newData.child('m').val() === 'pol' || newData.child('m').val() === 'nopol') && newData.child('t').isNumber() && newData.child('t').val() <= now && newData.child('w').isNumber() && newData.child('l').isNumber() && (data.exists() || (newData.child('w').val() === 0 && newData.child('l').val() === 0)) && (!newData.child('p').exists() || (newData.child('p').isString() && newData.child('p').val().length <= 6)) && (!newData.child('u').exists() || newData.child('u').isNumber())",
         "$other": {
-          ".validate": "$other === 'e' || $other === 'n' || $other === 'd' || $other === 'c' || $other === 'm' || $other === 't' || $other === 'w' || $other === 'l'"
+          ".validate": "$other === 'e' || $other === 'n' || $other === 'd' || $other === 'c' || $other === 'm' || $other === 't' || $other === 'w' || $other === 'l' || $other === 'p' || $other === 'u'"
+        }
+      }
+    },
+    "jm_res": {
+      ".read": true,
+      "$cid": {
+        ".indexOn": [
+          "t"
+        ],
+        "$rid": {
+          ".write": "$cid.length <= 24 && $rid.length <= 24 && !data.exists() && newData.exists() && root.child('jm_chal').child($cid).exists()",
+          ".validate": "newData.hasChildren(['e', 'n', 'd', 'c', 'w', 't']) && newData.child('e').isString() && newData.child('e').val().length <= 16 && newData.child('n').isString() && newData.child('n').val().length <= 8 && newData.child('d').isNumber() && newData.child('d').val() >= 0 && newData.child('d').val() <= 7 && newData.child('c').isString() && newData.child('c').val().length <= 60 && (newData.child('w').val() === 0 || newData.child('w').val() === 1) && newData.child('t').isNumber() && newData.child('t').val() <= now + 60000 && newData.child('t').val() >= now - 600000",
+          "$other": {
+            ".validate": "$other === 'e' || $other === 'n' || $other === 'd' || $other === 'c' || $other === 'w' || $other === 't'"
+          }
+        }
+      }
+    },
+    "jm_own": {
+      ".read": false,
+      "$id": {
+        ".write": "!data.exists() && newData.isString() && newData.val().length >= 16 && newData.val().length <= 40 && root.child('jm_chal').child($id).exists() && root.child('jm_chal').child($id).child('t').val() >= now - 300000"
+      }
+    },
+    "jm_retire": {
+      ".read": true,
+      "$id": {
+        "$tok": {
+          ".write": "!data.exists() && newData.val() === true && root.child('jm_own').child($id).val() === $tok"
+        }
+      }
+    },
+    "jm_xfer": {
+      ".read": false,
+      "$code": {
+        ".read": true,
+        ".write": "!data.exists() && newData.exists() && $code.length >= 10 && $code.length <= 16",
+        ".validate": "newData.hasChildren(['v', 't']) && newData.child('v').isString() && newData.child('v').val().length <= 1200 && newData.child('t').isNumber() && newData.child('t').val() <= now + 60000",
+        "$other": {
+          ".validate": "$other === 'v' || $other === 't'"
         }
       }
     }
