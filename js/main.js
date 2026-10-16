@@ -27,7 +27,7 @@
     // 海外の州などの人口は、町の人口から割り振った大まかな推定なので、けただけ出す
     if (e.pe && e.p >= 100) { const b = [[1e7, '1000万人以上'], [1e6, '100万人以上'], [1e5, '10万人以上'], [1e4, '1万人以上'], [0, '1万人未満']].find(x => e.pop >= x[0])[1]; return `人口 ${b} <span class="est">（推定）</span>`; }
     if (e.pe) return `人口 約${fmt(e.pop)}人 <span class="est">（${e.py}年ごろの推定）</span>`;
-    return `人口 ${fmt(e.pop)}人（${e.py}年）`;
+    return e.py ? `人口 ${fmt(e.pop)}人（${e.py}年）` : `人口 ${fmt(e.pop)}人`;
   }
   function areaText(e) { return '面積 ' + (e.a >= 100 ? fmt(Math.round(e.a)) : e.a.toFixed(1)) + 'km²'; }
   JM.popText = popText; JM.areaText = areaText;

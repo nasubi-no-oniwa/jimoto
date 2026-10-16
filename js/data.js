@@ -36,7 +36,7 @@
   const VAR_RE = new RegExp('[' + Object.keys(VAR).join('') + ']', 'g');
   // ひらがな・カタカナ・全角半角・旧字をそろえる。「ヶ」「ケ」「ヵ」も同じにする
   function norm(s) {
-    s = String(s || '').normalize('NFKC').toLowerCase().replace(/[\s・･]+/g, '');
+    s = String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').normalize('NFKC').toLowerCase().replace(/[\s・･]+/g, '');
     s = s.replace(VAR_RE, c => VAR[c]).replace(/[ヶヵ]/g, c => (c === 'ヶ' ? 'ケ' : 'カ'));
     return s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/ゖ/g, 'け').replace(/ゕ/g, 'か');
   }
