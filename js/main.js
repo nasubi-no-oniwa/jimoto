@@ -104,7 +104,7 @@
     saveSlots(); updateFight(); if (st.mode !== 'local' && JM.Net) JM.Net.changed();
   }
   JM.setSlot = setSlot;
-  function saveSlots() { if (st.mode === 'local' && !st.chal) store('jm_slots', JSON.stringify(st.slots.map(s => ({ id: s.e && s.e.id, dir: s.dir, cards: s.cards })))); }
+  function saveSlots() { if (st.mode === 'local' && !st.chal && !st.tmp) store('jm_slots', JSON.stringify(st.slots.map(s => ({ id: s.e && s.e.id, dir: s.dir, cards: s.cards })))); }
   async function loadSlots() {
     try {
       const v = JSON.parse(store('jm_slots') || 'null'); if (!v) return;
@@ -273,7 +273,7 @@
   }
   // ---------- ボタン ----------
   function bind() {
-    $('btn-play').onclick = () => { S().unlock && S().unlock(); S().play('ui'); if (st.chal) { st.chal = null; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; openSetup(); };
+    $('btn-play').onclick = () => { S().unlock && S().unlock(); S().play('ui'); if (st.chal || st.tmp || st.mode !== 'local') { st.chal = null; st.tmp = false; st.mode = 'local'; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; openSetup(); };
     $('btn-chal').onclick = () => { S().unlock && S().unlock(); S().play('ui'); JM.Chal.open(); };
     $('btn-chal-put').onclick = () => { S().play('ui'); JM.Chal.put(); };
     $('btn-chal-next').onclick = () => { S().play('ui'); $('result').classList.remove('on'); JM.Chal.open(); };
@@ -311,7 +311,7 @@
   function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); $('cls-sel').value = st.cls; $('cls-sel').disabled = st.mode === 'watch' || (st.mode === 'net' && st.reveal) || !!st.rnd || !!st.chal; }
   function openSetup() { syncMode(); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; if (JM.Chal) JM.Chal.header(); renderSlots(); S().bgm('title'); }
   JM.openSetup = openSetup; JM.renderSlots = renderSlots; JM.show = show; JM.syncMode = syncMode;
-  function toTitle() { QM.ended(); st.rnd = false; if (st.chal) { st.chal = null; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; if (JM.Chal) JM.Chal.mineSummary(); $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
+  function toTitle() { QM.ended(); st.rnd = false; if (st.chal || st.mode !== 'local' || st.tmp) { st.chal = null; st.tmp = false; st.mode = 'local'; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; if (JM.Chal) JM.Chal.mineSummary(); $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
   JM.toTitle = toTitle;
   // ---------- だれかと対戦（ランダム対戦） ----------
   function setupQM() {

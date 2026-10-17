@@ -115,10 +115,17 @@
       s.foeReady = !!(fo && fo.ok); if (s.mode === 'net' && !s.reveal) JM.renderSlots(); ui.status();
     },
     newGame(m) {
-      const s = st(); s.mode = R.watching ? 'watch' : 'net';
+      const s = st();
+      // 自分が前に選んだ市町村（オンラインで続けて遊ぶと、受け持つ側（左・右）が入れかわることがある）
+      const prev = s.mode === 'net' && s.my >= 0 ? s.slots[s.my] : s.slots[0];
+      const mine = { e: prev.e, parts: prev.parts, dir: prev.dir | 0, cards: (prev.cards || []).slice() };
+      s.mode = R.watching ? 'watch' : 'net';
       QM.started({ code: R.code, watch: R.watching });
       s.rnd = QM.isRandom(); if (s.rnd) { s.pol = 'pol'; s.cls = 'all'; } s.my = R.slot; s.reveal = false; s.myReady = false; s.foeReady = false; s.netNote = '';
-      if (!R.watching) { const o = s.slots[1 - R.slot]; o.e = null; o.parts = null; o.cards = []; o.dir = 0; }
+      if (!R.watching) {
+        Object.assign(s.slots[R.slot], mine);
+        const o = s.slots[1 - R.slot]; o.e = null; o.parts = null; o.cards = []; o.dir = 0;
+      }
       $('result').classList.remove('on'); JM.openSetup(); ui.status();
       if (!R.watching) R.setSel({ mode: s.pol, cls: s.cls, ok: 0 });
     },

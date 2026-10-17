@@ -306,6 +306,7 @@
   C.revenge = async function (c, r) {
     const s = st(), ea = D.byId.get(c.e), eb = D.byId.get(r.e); if (!ea || !eb) { JM.toast('市町村が見つかりません'); return; }
     s.mode = 'local'; s.my = -1; s.reveal = true; s.chal = null; s.rnd = false; s.pol = c.m === 'nopol' ? 'nopol' : 'pol'; s.cls = 'all';
+    s.tmp = true;   // 仕返しの組み合わせは、いつもの「好きな2つ」の組み合わせとして覚えない
     const pol = s.pol === 'pol';
     s.slots[0].dir = (c.d | 0) & 7; s.slots[1].dir = (r.d | 0) & 7;
     JM.openSetup();
