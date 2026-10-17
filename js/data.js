@@ -59,6 +59,8 @@
     if (!e.t) return { cur: true, txt: '現存' };
     const y = e.t.slice(0, 4), s = e.s && D.byId.get(e.s);
     if (!s) return { cur: false, txt: y + '年になくなった' };
+    // 同じ名前の今の市に続くもの（例：区ができる前の神戸市）
+    if (s.n === e.n && s.p === e.p && !s.t) return { cur: false, txt: y + '年まで（今の' + s.n + 'の前の形）' };
     const sname = (s.p !== e.p ? s.pn : '') + s.n;
     const now = D.now(e);
     let txt = y + '年 ' + sname + 'へ';
