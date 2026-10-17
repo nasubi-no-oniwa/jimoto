@@ -233,3 +233,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .mc-note { flex-basis: 100%; font-size: 11px; color: #8a7a65; font-weight: 500; }
 /* スマホで2回つづけてタップしても拡大しないように（スクロールはそのままできる） */
 html, body, * { touch-action: manipulation; }
+
+/* 弾丸合併へのリンク */
+.to-dangan { display: inline-block; margin-top: 4px; color: #ffcf3a; font-size: 13px; font-weight: 800; text-shadow: 0 1px 3px #000; }
+@media (max-height: 470px) { .to-dangan { font-size: 12px; margin-top: 0; } }
