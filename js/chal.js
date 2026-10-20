@@ -24,7 +24,7 @@
   const DAY = 86400000, BZ_DAYS = 30;
   const MINE_MAX = 20;          // 1台で持っておける挑戦状の数
   const DONE_MAX = 400;         // 成績をつけた挑戦状（同じ挑戦状で何度も成績をつけないため）
-  const LIST_N = 200;           // 新しい方から何枚の中から選ぶか
+  const LIST_N = 100;           // 新しい方から何枚の中から選ぶか
   const C = JM.Chal = {};
   let cache = null, cacheAt = 0, retired = null, retiredAt = 0;
   const mine = () => store.get('jm_mychal', []);
@@ -100,14 +100,17 @@
   }
   // 引退した挑戦状のID（1分は使い回す）
   async function retiredSet(force) {
-    if (!force && retired && Date.now() - retiredAt < 60000) return retired;
+    if (!force && retired && Date.now() - retiredAt < 600000) return retired;
     try { const v = await rest('jm_retire', { shallow: true }); retired = new Set(Object.keys(v || {})); } catch (e) { retired = retired || new Set(); }
     retiredAt = Date.now(); return retired;
   }
   const usable = (c, ret) => c && !c.x && D.byId.has(c.e) && !ret.has(c.id);
+  // 番付で読んだものは10分おぼえておく（何度も開いても読みなおさない）
+  const bzMemo = new Map();
+  async function bzGet(k, fn) { const m = bzMemo.get(k); if (m && Date.now() - m.t < 600000) return m.v; const v = await fn(); bzMemo.set(k, { t: Date.now(), v }); return v; }
   // 新しい挑戦状の一覧（1分は使い回す）
   async function list(force) {
-    if (!force && cache && Date.now() - cacheAt < 60000) return cache;
+    if (!force && cache && Date.now() - cacheAt < 300000) return cache;
     const [v, ret] = await Promise.all([rest('jm_chal', { orderBy: 't', limitToLast: LIST_N }), retiredSet(force)]);
     const out = []; for (const id in v || {}) { const c = Object.assign({ id }, v[id]); if (usable(c, ret)) out.push(c); }
     out.sort((a, b) => a.t - b.t);
@@ -276,7 +279,7 @@
     const el = $('chal-mine'), nb = $('chal-news'); if (!el) return;
     const ids = mine();
     if (!ids.length) { el.textContent = ''; if (nb) nb.hidden = true; return; }
-    if (!force && Date.now() - sumAt < 30000) return; sumAt = Date.now();
+    if (!force && Date.now() - sumAt < 300000) return; sumAt = Date.now();
     let w = 0, l = 0, n = 0; const seen = store.get('jm_seen', {}), nw = [];
     const ret = await retiredSet();
     await Promise.all(ids.map(async id => {
@@ -430,7 +433,7 @@
     const tokn = ++bzToken, box = $('bz-list'), stt = $('bz-st');
     JM.R.freeIn(box); box.innerHTML = ''; stt.textContent = '読みこみ中…';
     let v, ret;
-    try { [v, ret] = await Promise.all([rest('jm_chal', { orderBy: 'p', equalTo: key }), retiredSet()]); }
+    try { [v, ret] = await Promise.all([bzGet('c|' + key, () => rest('jm_chal', { orderBy: 'p', equalTo: key, limitToLast: 300 })), retiredSet()]); }
     catch (e) { stt.textContent = '読みこめませんでした。通信を確認してね'; return; }
     if (tokn !== bzToken) return;
     const since = Date.now() - BZ_DAYS * DAY;
@@ -439,7 +442,7 @@
     if (!cand.length) { stt.textContent = ''; box.innerHTML = `<p class="mc-empty">まだ「${esc(R.name(key))}」の番付にのった挑戦状はありません。<br>挑戦状を置いて挑戦者を倒すと、番付にのります。</p>`; return; }
     // この30日の勝ち（同じ市町村・向き・政策で何度も負けたものは1回だけ数える）
     await Promise.all(cand.map(async c => {
-      try { const rs = await rest('jm_res/' + c.id, { orderBy: 't', startAt: since, limitToLast: 200 }); c.res = Object.entries(rs || {}).map(([k, r]) => Object.assign({ id: k }, r)); }
+      try { const rs = await bzGet('r|' + c.id, () => rest('jm_res/' + c.id, { orderBy: 't', startAt: since, limitToLast: 60 })); c.res = Object.entries(rs || {}).map(([k, r]) => Object.assign({ id: k }, r)); }
       catch (e) { c.res = []; }
       const seen = new Set(); c.wins = [];
       for (const r of c.res.sort((a, b) => b.t - a.t)) { if (r.w !== 0) continue; const k = r.e + '|' + r.d + '|' + r.c; if (seen.has(k)) continue; seen.add(k); c.wins.push(r); }

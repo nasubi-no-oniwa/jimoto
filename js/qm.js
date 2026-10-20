@@ -18,7 +18,7 @@
 // =============================================
 (function () {
   const QM = window.QM = window.QM || {};
-  const DBURL = 'https://sakasama-drop-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const DBURL = (window.JM && JM.FIREBASE_CONFIG && JM.FIREBASE_CONFIG.databaseURL) || 'https://jimoto-saikyo-default-rtdb.asia-southeast1.firebasedatabase.app';
   const WAIT_CPU_SEC = 20;      // これだけ待っても相手がいなければ「CPUで待つ」を出す
   const ACCEPT_SEC = 30;        // 相手が見つかったときに「対戦する」を押せる時間
   const SCAN_MS = 3500;         // 待っている間、ほかの人をさがし直す間隔
@@ -26,7 +26,7 @@
   const OK_WAIT_CPU_MS = (ACCEPT_SEC + 6) * 1000;
   const JOIN_TIMEOUT_MS = 25000;// あいことばで入ってから試合の画面になるまでの上限
   const STALE_MS = 10 * 60 * 1000;
-  const COUNT_MS = 30000;
+  const COUNT_MS = 90000;   // 人数を読みなおす間かく（通信を減らすため長め）
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-5);
   const rcode = () => { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = 'q'; for (let i = 0; i < 9; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
   const TS = { '.sv': 'timestamp' };
