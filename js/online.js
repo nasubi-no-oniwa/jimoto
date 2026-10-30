@@ -11,11 +11,12 @@
 // =============================================
 (function () {
   const JM = window.JM, D = JM.D;
+  const T = (k, v) => I18N.t(k, v);
   const $ = id => document.getElementById(id);
   const clean = s => String(s || '').replace(/[.#$\[\]\/\s]/g, '').slice(0, 20);
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
-  function loadScript(src) { return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('通信できませんでした。電波のよいところでもう一度ためしてください')); document.head.appendChild(el); }); }
+  function loadScript(src) { return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(T('err_net'))); document.head.appendChild(el); }); }
   async function getDb() {
     if (JM._db) return JM._db;
     const v = '10.12.2';
@@ -29,14 +30,14 @@
     constructor(db, code, name) { this.db = db; this.code = clean(code); this.name = (window.QM ? QM.ng(name) : String(name || '').trim().slice(0, 8)) || 'ななし'; this.id = uid(); this.slot = -1; this.watching = false; this.players = {}; this.subs = []; this.ms = []; this.game = null; this.sel = {}; this.left = false; this.root = db.ref('jimoto/' + this.code); }
     on(ref, ev, fn, list) { ref.on(ev, fn); (list || this.subs).push([ref, ev, fn]); }
     async join() {
-      if (!this.code) throw new Error('あいことばを入れてください');
+      if (!this.code) throw new Error(T('err_code_short'));
       for (const s of [0, 1]) {
         const r = await this.root.child('players/' + s).transaction(cur => (cur ? undefined : { id: this.id, name: this.name }));
         if (r.committed && r.snapshot.val() && r.snapshot.val().id === this.id) { this.slot = s; break; }
       }
       if (this.slot < 0) {
         const w = (await this.root.child('watchers').once('value')).val() || {};
-        if (Object.keys(w).length >= 10) throw new Error('この部屋は観戦の人でいっぱいです（10人まで）');
+        if (Object.keys(w).length >= 10) throw new Error(T('room_full'));
         this.watching = true; const me = this.root.child('watchers/' + this.id); await me.set({ name: this.name }); me.onDisconnect().remove();
       } else {
         for (const k of ['players/', 'ready/', 'sel/']) this.root.child(k + this.slot).onDisconnect().remove();
@@ -83,7 +84,7 @@
     result(d) { if (this.slot >= 0 && this.game) this.root.child('res/' + this.game.m + '/' + this.slot).set(d); }
     done() { if (this.slot === 0 && this.game && !this.game.done) this.root.child('game').set({ m: this.game.m, done: 1 }); }
     again() { if (this.slot >= 0 && this.game) this.root.child('ready/' + this.slot).set(this.game.m + 1); }
-    names() { return [0, 1].map(s => (this.players[s] ? this.players[s].name : '…')); }
+    names() { return [0, 1].map(s => (this.players[s] ? JM.who(this.players[s].name) : '…')); }
     leave() {
       if (this.left) return; this.left = true;
       for (const [r, e, f] of this.subs.concat(this.ms)) r.off(e, f); this.subs = []; this.ms = [];
@@ -102,11 +103,11 @@
       let t = n[0] + ' VS ' + n[1];
       if (!s.reveal && s.mode === 'net') {
         const fo = R.sel[1 - R.slot];
-        const desc = f => '「' + (JM.CLS[f.cls || 'all'] || JM.CLS.all).n + '・' + (f.mode === 'pol' ? '政策あり' : '政策なし') + '」';
+        const desc = f => T('desc_q', { c: (JM.CLS[f.cls || 'all'] || JM.CLS.all).n, m: T(f.mode === 'pol' ? 'pol_on' : 'pol_off') });
         const same = fo && fo.mode === s.pol && (fo.cls || 'all') === s.cls;
-        if (fo && fo.ok && !same) t += '　あいては' + desc(fo) + 'で準備OK。合わせてね';
-        else if (fo && fo.ok) t += '　あいては準備OK！';
-        else if (fo) t += '　あいては' + desc(fo) + 'を選んでいます';
+        if (fo && fo.ok && !same) t += T('opp_ready_diff', { d: desc(fo) });
+        else if (fo && fo.ok) t += T('opp_ready');
+        else if (fo) t += T('opp_choosing', { d: desc(fo) });
       }
       s.netStatus = t; $('on-st').textContent = t;
     },
@@ -144,41 +145,41 @@
     },
     res(v) {
       const s = st(); if (!v[0] || !v[1]) return;
-      s.netNote = v[0] === v[1] ? 'ふたりの画面で同じ結果になりました。' : '※ふたりの画面で結果がずれました（お知らせください）';
+      s.netNote = T(v[0] === v[1] ? 'net_same' : 'net_diff');
       if (R && R.slot === 0) R.done();
     },
     left() {
       if (QM.isRandom()) {
         // ランダム対戦：相手が抜けたら、残った人の勝ち（試合が終わったあとなら知らせるだけ）
         const after = !!(st().result && document.getElementById('result').classList.contains('on'));
-        QM.notice(after ? '相手が部屋から出ました' : 'あなたの勝ち！', after ? 'また別の人と対戦できます。' : '相手が抜けたので、あなたの勝ち！', [
-          { label: '次の相手をさがす', fn: () => QM.next() },
-          { label: 'タイトルへ', sub: true, fn: () => { Net.leave(); JM.toTitle(); } },
+        QM.notice(T(after ? 'opp_left_room' : 'you_win'), T(after ? 'play_other' : 'left_win'), [
+          { label: T('qm_next'), fn: () => QM.next() },
+          { label: T('to_title'), sub: true, fn: () => { Net.leave(); JM.toTitle(); } },
         ]);
         return;
       }
-      JM.toast('あいてがいなくなりました'); setTimeout(() => { Net.leave(); JM.toTitle(); }, 1500);
+      JM.toast(T('opp_gone')); setTimeout(() => { Net.leave(); JM.toTitle(); }, 1500);
     },
   };
   const Net = JM.Net = {
     async join(name, code) {
       $('on-err').textContent = '';
-      if (!clean(code)) { $('on-err').textContent = 'あいことばを入れてください'; return; }
-      if (!JM.D.ready) { $('on-err').textContent = '市町村を読みこみ中です。少し待ってください'; return; }
+      if (!clean(code)) { $('on-err').textContent = T('err_code_short'); return; }
+      if (!JM.D.ready) { $('on-err').textContent = T('loading_wait'); return; }
       store('jm_name', name); store('jm_code', code);
       $('btn-join').disabled = true;
       try {
         const db = await getDb(); R = new Room(db, code, name); JM.room = R;
         const r = await R.join();
         $('on-form').classList.add('hide'); $('on-wait').classList.remove('hide');
-        $('on-msg').textContent = r.watching ? '観戦します。試合を待っています…' : 'あいてを待っています…';
-      } catch (e) { $('on-err').textContent = e.message || 'つながりませんでした'; R = null; }
+        $('on-msg').textContent = T(r.watching ? 'watch_wait' : 'waiting');
+      } catch (e) { $('on-err').textContent = e.message || T('err_conn'); R = null; }
       $('btn-join').disabled = false;
     },
     // 自分のえらびが変わった（準備OKだったら取り消す）
     changed() {
       if (!R || R.watching) return; const s = st();
-      if (s.myReady) { s.myReady = false; R.unpick(); JM.toast('変更したので、準備OKを取り消しました'); }
+      if (s.myReady) { s.myReady = false; R.unpick(); JM.toast(T('ready_cancel')); }
       R.setSel({ mode: s.pol, cls: s.cls, ok: 0 }); JM.renderSlots(); ui.status();
     },
     ready() {
@@ -188,9 +189,11 @@
       JM.renderSlots(); ui.status();
     },
     finished() { },
-    again() { if (R && !R.watching) { R.again(); st().netNote = ''; JM.toast('あいてを待っています…'); } },
+    again() { if (R && !R.watching) { R.again(); st().netNote = ''; JM.toast(T('waiting')); } },
     leave() { QM.ended(); if (R) { R.leave(); R = null; JM.room = null; } },
   };
+  // ことばを切りかえたら、上の帯の文を作りなおす
+  document.addEventListener('langchange', () => { if (R && st().mode !== 'local') { ui.people(); ui.status(); } });
   JM.cleanCode = clean;
   JM.getDb = getDb;
 })();

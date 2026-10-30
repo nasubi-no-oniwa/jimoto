@@ -17,6 +17,9 @@
 // =============================================
 (function () {
   const JM = window.JM, D = JM.D;
+  const T = (k, v) => I18N.t(k, v);
+  // 名前の既定値「ななし」（データベースに入っている）は、表示のときだけ訳す
+  const who = JM.who = n => (!n || n === 'ななし') ? T('noname') : n;
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
@@ -31,10 +34,10 @@
   const toks = () => store.get('jm_mytok', {});
   const done = () => store.get('jm_chaldone', []);
   const st = () => JM.st;
-  const recText = c => (c.w || c.l) ? `${c.w || 0}勝${c.l || 0}敗` : 'まだだれも挑戦していない';
+  const recText = c => (c.w || c.l) ? T('wl', { w: c.w || 0, l: c.l || 0 }) : T('no_chal_yet');
   const myName = () => { try { return localStorage.getItem('jm_name') || ''; } catch (e) { return ''; } };
   const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
-  const polText = c => { const ks = String(c.c || '').split(',').filter(k => JM.POL[k]); return c.m === 'nopol' ? '政策なし' : ks.length ? ks.map(k => JM.POL[k].n).join('・') : '政策カードなし'; };
+  const polText = c => { const ks = String(c.c || '').split(',').filter(k => JM.POL[k]); return c.m === 'nopol' ? T('nopol') : ks.length ? ks.map(k => JM.POL[k].n).join(T('dot')) : T('no_cards'); };
   C.link = id => URL_GAME + '?c=' + encodeURIComponent(id);
 
   // ---------- 通信 ----------
@@ -124,10 +127,11 @@
   let regions = null;
   JM.regions = function () {
     if (regions) return regions;
-    const jp = D.pref.slice(0, 47).map((n, i) => ({ k: 'J' + String(i + 1).padStart(2, '0'), n })), seen = new Map();
-    for (const e of D.list) if (e.p >= 100 && !seen.has(e.p)) seen.set(e.p, e.pn);
-    const world = [...seen.entries()].map(([p, n]) => ({ k: 'C' + p, n })).sort((a, b) => a.n.localeCompare(b.n, 'ja'));
-    regions = { jp, world, all: [...jp, { k: 'W', n: '世界の国・昔の国' }, ...world] };
+    const jp = (D.dpref && D.dpref.length ? D.dpref : D.pref).slice(0, 47).map((n, i) => ({ k: 'J' + String(i + 1).padStart(2, '0'), n })), seen = new Map();
+    for (const e of D.list) if (e.p >= 100 && !seen.has(e.p)) seen.set(e.p, e.dpn || e.pn);
+    const lc = { ja: 'ja', en: 'en', zh: 'zh-Hant', ko: 'ko' }[I18N.lang] || 'ja';
+    const world = [...seen.entries()].map(([p, n]) => ({ k: 'C' + p, n })).sort((a, b) => a.n.localeCompare(b.n, lc));
+    regions = { jp, world, all: [...jp, { k: 'W', n: T('w_region') }, ...world] };
     regions.name = k => (regions.all.find(r => r.k === k) || { n: '' }).n;
     return regions;
   };
@@ -154,19 +158,19 @@
   // ---------- 挑戦状と戦う ----------
   C.open = async function (fromWait) {
     try {
-      if (!D.ready) throw new Error('市町村を読みこみ中です。少し待ってください');
-      JM.toast('挑戦状をさがしています…');
+      if (!D.ready) throw new Error(T('loading_wait'));
+      JM.toast(T('chal_searching'));
       const L = await list();
       const my = new Set(mine()), dn = new Set(done());
       let cand = L.filter(c => !my.has(c.id) && !dn.has(c.id));
       if (!cand.length) cand = L.filter(c => !my.has(c.id));       // 全部と戦ったら、もう一度（成績はつかない）
-      if (!cand.length) { JM.toast(L.length ? 'いまある挑戦状は、ぜんぶあなたのものです' : 'まだ挑戦状がありません。試合のあとに置いてみよう'); if (fromWait) C.end(); return false; }
+      if (!cand.length) { JM.toast(T(L.length ? 'chal_allmine' : 'chal_none')); if (fromWait) C.end(); return false; }
       // 新しいものほど出やすく
       let sum = 0; const wts = cand.map((c, i) => (sum += 1 + i / cand.length * 2));
       const r = Math.random() * sum; const c = cand[wts.findIndex(w => w >= r)] || cand[cand.length - 1];
       await C.start(c);
       return true;
-    } catch (e) { JM.toast(e.message && !/^http/.test(e.message) ? e.message : '挑戦状を読みこめませんでした'); return false; }
+    } catch (e) { JM.toast(e.message && !/^http/.test(e.message) ? e.message : T('chal_loadfail')); return false; }
   };
   C.start = async function (c) {
     const s = st(), e = D.byId.get(c.e); if (!e) return;
@@ -186,16 +190,16 @@
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
     try {
       const [c, ret] = await Promise.all([getChal(id), retiredSet(true)]);
-      if (!c || !usable(c, ret)) { JM.toast(c && ret.has(id) ? 'この挑戦状は引退しました' : 'この挑戦状は見つかりませんでした'); return false; }
+      if (!c || !usable(c, ret)) { JM.toast(T(c && ret.has(id) ? 'chal_retired' : 'chal_notfound')); return false; }
       await C.start(c);
-      JM.toast(`${c.n}さんの挑戦状が届きました`);
+      JM.toast(T('chal_arrived', { n: who(c.n) }));
       return true;
-    } catch (e) { JM.toast('挑戦状を読みこめませんでした'); return false; }
+    } catch (e) { JM.toast(T('chal_loadfail')); return false; }
   };
   C.header = function () {
     const s = st(), c = s.chal, el = $('on-st'); if (!el) return;
     if (!c) { if (s.mode === 'local') el.textContent = ''; return; }
-    el.innerHTML = `<b>${esc(c.n)}</b>さんの挑戦状（${esc(recText(c))}）<span class="chal-h">左にあなたの市町村をえらんで、はっけよい！</span>`;
+    el.innerHTML = T('chal_head', { n: esc(who(c.n)), r: esc(recText(c)) }) + `<span class="chal-h">${T('chal_h')}</span>`;
   };
   C.end = function () { const s = st(); s.chal = null; s.chalRec = false; C.header(); };
 
@@ -203,11 +207,11 @@
   C.onResult = async function (winner) {
     const s = st(), c = s.chal; if (!c) return null;
     let note = '';
-    if (winner === 0) note = `${c.n}さんの挑戦状に勝った！`;
-    else if (winner === 1) note = `${c.n}さんの挑戦状に負けた…`;
-    else note = `${c.n}さんの挑戦状と引き分け`;
+    if (winner === 0) note = T('chal_won', { n: who(c.n) });
+    else if (winner === 1) note = T('chal_lost', { n: who(c.n) });
+    else note = T('chal_draw', { n: who(c.n) });
     const dn = done();
-    if (s.chalRec || dn.includes(c.id) || winner < 0 || mine().includes(c.id)) { s.chalRec = true; return note + `（この挑戦状：${recText(c)}）`; }
+    if (s.chalRec || dn.includes(c.id) || winner < 0 || mine().includes(c.id)) { s.chalRec = true; return note + T('this_chal_rec', { r: recText(c) }); }
     s.chalRec = true;
     dn.push(c.id); store.set('jm_chaldone', dn.slice(-DONE_MAX));
     const me = s.slots[0], pol = c.m !== 'nopol';
@@ -216,7 +220,7 @@
       await put('jm_res/' + c.id + '/' + rid(), { e: me.e.id, n: QM.ng(myName()) || 'ななし', d: me.dir | 0, c: pol ? me.cards.join(',') : '', w: winner === 0 ? 1 : 0, t: Date.now() });
       const v = await bump(c.id, winner); if (v) { c.w = v.w; c.l = v.l; } C.header();
     } catch (e) {}
-    return note + `（この挑戦状：${recText(c)}）`;
+    return note + T('this_chal_rec', { r: recText(c) });
   };
 
   // ---------- 投稿・リンク ----------
@@ -225,30 +229,30 @@
     window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
   };
   async function copy(t) {
-    try { await navigator.clipboard.writeText(t); JM.toast('コピーしました'); }
-    catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); JM.toast('コピーしました'); } catch (e2) { JM.toast('コピーできませんでした'); } a.remove(); }
+    try { await navigator.clipboard.writeText(t); JM.toast(T('copied')); }
+    catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); JM.toast(T('copied')); } catch (e2) { JM.toast(T('copy_fail')); } a.remove(); }
   }
-  const boshu = (e, id) => `${D.fname(e)}で挑戦状を置きました。倒せるものなら倒してみて！\n${C.link(id)}\n#地元の最強`;
+  const boshu = (e, id) => T('boshu', { n: D.fname(e), u: C.link(id) });
 
   // ---------- 挑戦状を置く ----------
   C.put = function () {
     const s = st(); if (s.mode !== 'local' || s.chal) return;
     const e0 = s.slots[0].e, e1 = s.slots[1].e; if (!e0 || !e1) return;
-    const card = QM.dialog(`<h3>挑戦状を置く</h3>
-      <p class="qm-sub">えらんだ市町村・向き・政策が、そのまま挑戦状になります。だれかが挑戦すると、あなたの挑戦状に成績がつきます。挑戦者をたくさん倒すと、県・国の番付にのります。</p>
-      <label class="qm-fld">なまえ<input id="ch-name" maxlength="8" autocomplete="off" placeholder="ななし" value="${esc(myName())}"></label>
+    const card = QM.dialog(`<h3>${T('put_chal')}</h3>
+      <p class="qm-sub">${T('put_sub')}</p>
+      <label class="qm-fld">${T('name')}<input id="ch-name" maxlength="8" autocomplete="off" placeholder="${esc(T('noname'))}" value="${esc(myName())}"></label>
       <p class="qm-err" id="ch-err"></p>
-      <button class="qm-b" id="ch-0">左：${esc(e0.n)}を置く</button>
-      <button class="qm-b alt" id="ch-1">右：${esc(e1.n)}を置く</button>
-      <button class="qm-b sub" id="ch-x">やめる</button>`);
+      <button class="qm-b" id="ch-0">${T('put_l', { n: esc(e0.dn) })}</button>
+      <button class="qm-b alt" id="ch-1">${T('put_r', { n: esc(e1.dn) })}</button>
+      <button class="qm-b sub" id="ch-x">${T('qm_cancel')}</button>`);
     const go = async i => {
       const n = card.querySelector('#ch-name').value.trim().slice(0, 8);
-      if (n && QM.isBad(n)) { card.querySelector('#ch-err').textContent = 'その名前は使えません。ほかの名前にしてね'; return; }
+      if (n && QM.isBad(n)) { card.querySelector('#ch-err').textContent = T('qm_badname'); return; }
       try { localStorage.setItem('jm_name', n); } catch (e) {}
       card.querySelectorAll('button').forEach(b => { b.disabled = true; });
       try {
         const sl = s.slots[i];
-        card.querySelector('#ch-err').textContent = '置いています…';
+        card.querySelector('#ch-err').textContent = T('putting');
         const id = rid(), tok = 't' + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
         const v = { e: sl.e.id, n: QM.ng(n) || 'ななし', d: sl.dir | 0, c: (s.pol === 'pol' ? sl.cards : []).join(','), m: s.pol === 'pol' ? 'pol' : 'nopol', t: { '.sv': 'timestamp' }, w: 0, l: 0, p: JM.region(sl.e) };
         await put('jm_chal/' + id, v);
@@ -256,16 +260,16 @@
         try { await put('jm_own/' + id, tok); const tk = toks(); tk[id] = tok; store.set('jm_mytok', tk); } catch (e) {}
         const sn = store.get('jm_seen', {}); sn[id] = Date.now(); store.set('jm_seen', sn);
         cache = null;
-        const dlg = QM.dialog(`<h3>挑戦状を置きました！</h3><p><b>${esc(D.fname(sl.e))}</b>（向き ${sl.dir * 45}°・${esc(polText(v))}）</p>
-          <p class="qm-sub">この挑戦状のリンクを送ると、その人とすぐ勝負できます。成績はタイトル画面の「あなたの挑戦状」で見られます。</p>
-          <button class="qm-b" id="ch-sh">挑戦者を募集する（投稿）</button><button class="qm-b alt" id="ch-cp">リンクをコピー</button><button class="qm-b sub" id="ch-ok">OK</button>`);
+        const dlg = QM.dialog(`<h3>${T('put_done')}</h3><p>${T('put_desc', { n: esc(D.fname(sl.e)), d: sl.dir * 45, p: esc(polText(v)) })}</p>
+          <p class="qm-sub">${T('put_done_sub')}</p>
+          <button class="qm-b" id="ch-sh">${T('recruit_post')}</button><button class="qm-b alt" id="ch-cp">${T('copy_link2')}</button><button class="qm-b sub" id="ch-ok">${T('ok')}</button>`);
         dlg.querySelector('#ch-sh').onclick = () => C.shareText(boshu(sl.e, id));
         dlg.querySelector('#ch-cp').onclick = () => copy(C.link(id));
         dlg.querySelector('#ch-ok').onclick = () => QM.close();
         C.mineSummary(true);
       } catch (e) {
         card.querySelectorAll('button').forEach(b => { b.disabled = false; });
-        card.querySelector('#ch-err').textContent = '置けませんでした。通信を確認してね';
+        card.querySelector('#ch-err').textContent = T('put_fail');
       }
     };
     card.querySelector('#ch-0').onclick = () => go(0);
@@ -292,13 +296,22 @@
       } catch (e) {}
     }));
     news = nw.sort((a, b) => b.t - a.t);
-    el.textContent = n ? `あなたの挑戦状 ${n}枚：${w}勝${l}敗` : '';
+    sumV = { n, w, l }; drawSum();
+  };
+  // タイトルの成績とお知らせ（ことばを切りかえたら書きなおす）
+  let sumV = null;
+  function drawSum() {
+    const el = $('chal-mine'), nb = $('chal-news'); if (!el || !sumV) return;
+    const { n, w, l } = sumV;
+    el.textContent = n ? T('mine_sum', { n, w, l }) : '';
     if (nb) {
       const lost = news.filter(r => r.w === 1).length, won = news.length - lost;
       nb.hidden = !news.length;
-      nb.innerHTML = lost ? `🔔 挑戦状が<b>${lost}回</b>破られました${won ? `・${won}勝` : ''}` : `🔔 挑戦状が<b>${won}回</b>勝ちました`;
+      nb.innerHTML = lost ? T('news_lost', { n: lost, x: won ? T('news_wonx', { w: won }) : '' }) : T('news_won', { n: won });
     }
-  };
+  }
+  document.addEventListener('langchange', () => { regions = null; const sel = $('bz-reg'); if (sel) sel.innerHTML = ''; drawSum(); if (st() && st().chal) C.header(); });
+  document.addEventListener('namesrelabeled', () => { regions = null; const sel = $('bz-reg'); if (sel) sel.innerHTML = ''; });
   function markSeen() {
     const sn = store.get('jm_seen', {});
     for (const r of news) sn[r.cid] = Math.max(sn[r.cid] || 0, r.t);
@@ -307,7 +320,7 @@
 
   // ---------- 仕返し：自分の挑戦状（左）と、それを破った人の市町村（右）で戦う ----------
   C.revenge = async function (c, r) {
-    const s = st(), ea = D.byId.get(c.e), eb = D.byId.get(r.e); if (!ea || !eb) { JM.toast('市町村が見つかりません'); return; }
+    const s = st(), ea = D.byId.get(c.e), eb = D.byId.get(r.e); if (!ea || !eb) { JM.toast(T('place_nf')); return; }
     s.mode = 'local'; s.my = -1; s.reveal = true; s.chal = null; s.rnd = false; s.pol = c.m === 'nopol' ? 'nopol' : 'pol'; s.cls = 'all';
     s.tmp = true;   // 仕返しの組み合わせは、いつもの「好きな2つ」の組み合わせとして覚えない
     const pol = s.pol === 'pol';
@@ -318,7 +331,7 @@
     s.slots[1].cards = pol ? String(r.c || '').split(',').filter(k => JM.POL[k]) : [];
     s.slots[0].dir = (c.d | 0) & 7; s.slots[1].dir = (r.d | 0) & 7;
     JM.renderSlots();
-    JM.toast(`仕返し！右が${r.n}さんの${eb.n}です。向きや政策を変えて勝ちにいこう`);
+    JM.toast(T('revenge_toast', { n: who(r.n), t: eb.dn }));
   };
 
   // ---------- あなたの挑戦状（画面） ----------
@@ -327,13 +340,13 @@
     D.shape(e.id).then(parts => { const g = cv.getContext('2d'); if (g) JM.R.shapeIcon(g, parts, px, px, px * 1.6, dir, side, { lw: 2.5 }); }).catch(() => {});
     return cv;
   }
-  const ago = t => { const m = (Date.now() - t) / 60000; return m < 60 ? Math.max(1, Math.round(m)) + '分前' : m < 1440 ? Math.round(m / 60) + '時間前' : Math.round(m / 1440) + '日前'; };
+  const ago = t => { const m = (Date.now() - t) / 60000; return m < 60 ? T('min_ago', { n: Math.max(1, Math.round(m)) }) : m < 1440 ? T('hr_ago', { n: Math.round(m / 60) }) : T('day_ago', { n: Math.round(m / 1440) }); };
   C.openMine = async function () {
     JM.show('s-mine');
-    const box = $('mine-list'); JM.R.freeIn(box); box.innerHTML = '<p class="mc-empty">読みこみ中…</p>';
+    const box = $('mine-list'); JM.R.freeIn(box); box.innerHTML = '<p class="mc-empty">' + T('loading_s') + '</p>';
     const newIds = new Set(news.map(r => r.id)); markSeen();
     const ids = mine().slice().reverse(), tk = toks();
-    if (!ids.length) { box.innerHTML = '<p class="mc-empty">まだ挑戦状を置いていません。<br>試合のあとの「挑戦状を置く」から置けます。</p>'; return; }
+    if (!ids.length) { box.innerHTML = '<p class="mc-empty">' + T('mine_empty') + '</p>'; return; }
     let ret; try { ret = await retiredSet(true); } catch (e) { ret = new Set(); }
     const rows = await Promise.all(ids.map(async id => {
       try { const [c, rs] = await Promise.all([getChal(id), rest('jm_res/' + id, { orderBy: 't', limitToLast: 5 })]); return { id, c, rs: Object.entries(rs || {}).map(([k, v]) => Object.assign({ id: k }, v)).sort((a, b) => b.t - a.t) }; }
@@ -342,30 +355,30 @@
     box.innerHTML = '';
     for (const { id, c, rs, err } of rows) {
       const el = document.createElement('div'); el.className = 'mc';
-      if (err) { el.innerHTML = '<p class="mc-empty">読みこめませんでした。通信を確認してね</p>'; box.appendChild(el); continue; }
+      if (err) { el.innerHTML = '<p class="mc-empty">' + T('load_fail_net') + '</p>'; box.appendChild(el); continue; }
       const e = c && D.byId.get(c.e);
-      if (!c || !e) { el.classList.add('gone'); el.innerHTML = '<p class="mc-empty">この挑戦状は見つかりませんでした</p>'; box.appendChild(el); continue; }
+      if (!c || !e) { el.classList.add('gone'); el.innerHTML = '<p class="mc-empty">' + T('chal_notfound') + '</p>'; box.appendChild(el); continue; }
       const isRet = ret.has(id), hid = !!c.x;
       el.classList.toggle('gone', isRet || hid);
       const head = document.createElement('div'); head.className = 'mc-head';
       head.appendChild(shapeCanvas(e, c.d, 0, 64));
       const info = document.createElement('div'); info.className = 'mc-info';
-      info.innerHTML = `<small>${esc(e.where || e.pn)}</small><b>${esc(e.n)}</b><small>向き ${c.d * 45}°・${esc(polText(c))}</small>
-        <div class="mc-rec"><span class="w">${c.w || 0}勝</span><span class="l">${c.l || 0}敗</span>${isRet ? '<em>引退</em>' : hid ? '<em>非表示</em>' : ''}<small>${ago(c.t)}に置いた</small></div>`;
+      info.innerHTML = `<small>${esc(e.dwhere || e.dpn)}</small><b>${esc(e.dn)}</b><small>${T('dir_pol', { d: c.d * 45, p: esc(polText(c)) })}</small>
+        <div class="mc-rec"><span class="w">${T('n_w', { n: c.w || 0 })}</span><span class="l">${T('n_l', { n: c.l || 0 })}</span>${isRet ? `<em>${T('retired')}</em>` : hid ? `<em>${T('hidden_s')}</em>` : ''}<small>${T('put_ago', { a: ago(c.t) })}</small></div>`;
       head.appendChild(info); el.appendChild(head);
       const ul = document.createElement('ul'); ul.className = 'mc-res';
-      if (!rs.length) ul.innerHTML = '<li class="none">まだだれも挑戦していません</li>';
+      if (!rs.length) ul.innerHTML = '<li class="none">' + T('none_challenged') + '</li>';
       for (const r of rs) {
         const re = D.byId.get(r.e); const li = document.createElement('li'); if (newIds.has(r.id)) li.classList.add('new');
-        li.innerHTML = `<span class="mk ${r.w ? 'l' : 'w'}">${r.w ? '負' : '勝'}</span><span class="who"><b>${esc(r.n)}</b>さんの${esc(re ? D.fname(re) : '（わからない市町村）')}${r.w ? 'に破られた' : 'を倒した'}<small>${ago(r.t)}</small></span>`;
-        if (r.w && re && !isRet) { const b = document.createElement('button'); b.className = 'btn sm hot'; b.textContent = '仕返し'; b.onclick = () => { JM.S && JM.S.play && JM.S.play('ui'); C.revenge(c, r); }; li.appendChild(b); }
+        li.innerHTML = `<span class="mk ${r.w ? 'l' : 'w'}">${T(r.w ? 'mk_l' : 'mk_w')}</span><span class="who">${T(r.w ? 'res_lost' : 'res_won', { n: esc(who(r.n)), t: esc(re ? D.fname(re) : T('unknown_place')) })}<small>${ago(r.t)}</small></span>`;
+        if (r.w && re && !isRet) { const b = document.createElement('button'); b.className = 'btn sm hot'; b.textContent = T('revenge'); b.onclick = () => { JM.S && JM.S.play && JM.S.play('ui'); C.revenge(c, r); }; li.appendChild(b); }
         ul.appendChild(li);
       }
       el.appendChild(ul);
       if (!isRet && !hid) {
         const bt = document.createElement('div'); bt.className = 'mc-btns';
-        bt.innerHTML = `<button class="btn sm hot" data-a="sh">挑戦者を募集</button><button class="btn sm" data-a="cp">リンクをコピー</button>${tk[id] ? '<button class="btn sm" data-a="rt">引退させる</button>' : ''}`;
-        if (!tk[id]) bt.insertAdjacentHTML('beforeend', '<small class="mc-note">前の版で置いた挑戦状は、引退できません</small>');
+        bt.innerHTML = `<button class="btn sm hot" data-a="sh">${T('recruit')}</button><button class="btn sm" data-a="cp">${T('copy_link2')}</button>${tk[id] ? `<button class="btn sm" data-a="rt">${T('retire')}</button>` : ''}`;
+        if (!tk[id]) bt.insertAdjacentHTML('beforeend', '<small class="mc-note">' + T('old_noretire') + '</small>');
         bt.onclick = ev => {
           const a = ev.target.closest('button'); if (!a) return;
           if (a.dataset.a === 'sh') C.shareText(boshu(e, id));
@@ -378,68 +391,67 @@
     }
   };
   function retire(id, e) {
-    const dlg = QM.dialog(`<h3>引退させますか？</h3><p><b>${esc(D.fname(e))}</b>の挑戦状は、もうだれとも戦わず、番付からも外れます。<br>もとにもどせません。</p><p class="qm-err" id="rt-err"></p><button class="qm-b" id="rt-ok">引退させる</button><button class="qm-b sub" id="rt-x">やめる</button>`);
+    const dlg = QM.dialog(`<h3>${T('retire_q')}</h3><p>${T('retire_body', { n: esc(D.fname(e)) })}</p><p class="qm-err" id="rt-err"></p><button class="qm-b" id="rt-ok">${T('retire')}</button><button class="qm-b sub" id="rt-x">${T('qm_cancel')}</button>`);
     dlg.querySelector('#rt-x').onclick = () => QM.close();
     dlg.querySelector('#rt-ok').onclick = async () => {
       const tok = toks()[id]; if (!tok) return;
       dlg.querySelectorAll('button').forEach(b => { b.disabled = true; });
-      try { await put('jm_retire/' + id + '/' + tok, true); retired = null; cache = null; QM.close(); JM.toast('引退させました'); C.openMine(); C.mineSummary(true); }
-      catch (er) { dlg.querySelectorAll('button').forEach(b => { b.disabled = false; }); dlg.querySelector('#rt-err').textContent = 'できませんでした。通信を確認してね'; }
+      try { await put('jm_retire/' + id + '/' + tok, true); retired = null; cache = null; QM.close(); JM.toast(T('retired_toast')); C.openMine(); C.mineSummary(true); }
+      catch (er) { dlg.querySelectorAll('button').forEach(b => { b.disabled = false; }); dlg.querySelector('#rt-err').textContent = T('fail_net'); }
     };
   }
   // ---------- 引き継ぎコード ----------
   const CODE_CH = 'abcdefghjkmnpqrstuvwxyz23456789';
   C.xferOut = async function () {
-    const ids = mine(); if (!ids.length) { JM.toast('まだ挑戦状がありません'); return; }
+    const ids = mine(); if (!ids.length) { JM.toast(T('chal_none_s')); return; }
     const tk = toks(), v = ids.map(id => id + ':' + (tk[id] || '')).join(',');
     let code = ''; for (let i = 0; i < 10; i++) code += CODE_CH[Math.floor(Math.random() * CODE_CH.length)];
     try {
       await put('jm_xfer/' + code, { v, t: Date.now() });
       const shown = code.slice(0, 5) + '-' + code.slice(5);
-      const dlg = QM.dialog(`<h3>引き継ぎコード</h3><p class="xf-code">${shown}</p><p class="qm-sub">新しい端末の「あなたの挑戦状」→「コードを入れる」に入力すると、挑戦状（${ids.length}枚）を引き継げます。<br>コードは人に教えないでください（引退もできてしまいます）。</p><button class="qm-b" id="xf-cp">コピー</button><button class="qm-b sub" id="xf-ok">とじる</button>`);
+      const dlg = QM.dialog(`<h3>${T('xf_code_h')}</h3><p class="xf-code">${shown}</p><p class="qm-sub">${T('xf_code_sub', { n: ids.length })}</p><button class="qm-b" id="xf-cp">${T('copy')}</button><button class="qm-b sub" id="xf-ok">${T('close')}</button>`);
       dlg.querySelector('#xf-cp').onclick = () => copy(shown);
       dlg.querySelector('#xf-ok').onclick = () => QM.close();
-    } catch (e) { JM.toast('コードを作れませんでした。通信を確認してね'); }
+    } catch (e) { JM.toast(T('xf_fail')); }
   };
   C.xferIn = function () {
-    const dlg = QM.dialog(`<h3>コードを入れる</h3><p class="qm-sub">前の端末で出した引き継ぎコード（10文字）を入れてください。</p><label class="qm-fld">コード<input id="xf-in" maxlength="16" autocomplete="off" autocapitalize="off" placeholder="abcde-fghjk"></label><p class="qm-err" id="xf-err"></p><button class="qm-b" id="xf-go">引き継ぐ</button><button class="qm-b sub" id="xf-x">やめる</button>`);
+    const dlg = QM.dialog(`<h3>${T('xf_in')}</h3><p class="qm-sub">${T('xf_in_sub')}</p><label class="qm-fld">${T('code')}<input id="xf-in" maxlength="16" autocomplete="off" autocapitalize="off" placeholder="abcde-fghjk"></label><p class="qm-err" id="xf-err"></p><button class="qm-b" id="xf-go">${T('xf_go')}</button><button class="qm-b sub" id="xf-x">${T('qm_cancel')}</button>`);
     dlg.querySelector('#xf-x').onclick = () => QM.close();
     dlg.querySelector('#xf-go').onclick = async () => {
       const code = dlg.querySelector('#xf-in').value.toLowerCase().replace(/[^a-z0-9]/g, ''), err = dlg.querySelector('#xf-err');
-      if (code.length !== 10) { err.textContent = '10文字のコードを入れてください'; return; }
+      if (code.length !== 10) { err.textContent = T('xf_len'); return; }
       try {
-        const v = await rest('jm_xfer/' + code); if (!v || !v.v) { err.textContent = 'そのコードは見つかりませんでした'; return; }
+        const v = await rest('jm_xfer/' + code); if (!v || !v.v) { err.textContent = T('xf_notfound'); return; }
         const my = mine(), tk = toks(); let add = 0;
         for (const it of String(v.v).split(',')) { const [id, t] = it.split(':'); if (!id) continue; if (!my.includes(id)) { my.push(id); add++; } if (t) tk[id] = t; }
         store.set('jm_mychal', my.slice(-MINE_MAX)); store.set('jm_mytok', tk);
-        QM.close(); JM.toast(add ? `${add}枚の挑戦状を引き継ぎました` : 'もう全部この端末にあります'); C.openMine(); C.mineSummary(true);
-      } catch (e) { err.textContent = '読みこめませんでした。通信を確認してね'; }
+        QM.close(); JM.toast(add ? T('xf_added', { n: add }) : T('xf_already')); C.openMine(); C.mineSummary(true);
+      } catch (e) { err.textContent = T('load_fail_net'); }
     };
   };
 
   // ---------- 番付 ----------
-  const RANKS = ['横綱', '大関', '関脇', '小結'];
-  const rankName = i => i < 4 ? RANKS[i] : '前頭' + '一二三四五六'[i - 4] + '枚目';
+  const rankName = i => i < 4 ? T('rk' + i) : T('rk_mae', { n: I18N.lang === 'ja' ? '一二三四五六'[i - 4] : i - 3 });
   let bzToken = 0;
   C.openBanzuke = async function (key) {
     JM.show('s-bz');
     const R = JM.regions(), sel = $('bz-reg');
     if (!sel.options.length) {
-      sel.innerHTML = `<optgroup label="日本（都道府県）">${R.jp.map(r => `<option value="${r.k}">${esc(r.n)}</option>`).join('')}</optgroup><optgroup label="世界"><option value="W">世界の国・昔の国</option>${R.world.map(r => `<option value="${r.k}">${esc(r.n)}</option>`).join('')}</optgroup>`;
+      sel.innerHTML = `<optgroup label="${esc(T('og_jp'))}">${R.jp.map(r => `<option value="${r.k}">${esc(r.n)}</option>`).join('')}</optgroup><optgroup label="${esc(T('og_world'))}"><option value="W">${esc(T('w_region'))}</option>${R.world.map(r => `<option value="${r.k}">${esc(r.n)}</option>`).join('')}</optgroup>`;
       sel.onchange = () => { store.set('jm_bzreg', sel.value); C.openBanzuke(sel.value); };
     }
     if (!key) { key = store.get('jm_bzreg', null); const e0 = st().slots[0].e; if (!key && e0) key = JM.region(e0); if (!key || !R.all.some(r => r.k === key)) key = 'J13'; }
     sel.value = key;
     const tokn = ++bzToken, box = $('bz-list'), stt = $('bz-st');
-    JM.R.freeIn(box); box.innerHTML = ''; stt.textContent = '読みこみ中…';
+    JM.R.freeIn(box); box.innerHTML = ''; stt.textContent = T('loading_s');
     let v, ret;
     try { [v, ret] = await Promise.all([bzGet('c|' + key, () => rest('jm_chal', { orderBy: 'p', equalTo: key, limitToLast: 300 })), retiredSet()]); }
-    catch (e) { stt.textContent = '読みこめませんでした。通信を確認してね'; return; }
+    catch (e) { stt.textContent = T('load_fail_net'); return; }
     if (tokn !== bzToken) return;
     const since = Date.now() - BZ_DAYS * DAY;
     let cand = Object.entries(v || {}).map(([id, c]) => Object.assign({ id }, c)).filter(c => usable(c, ret) && (c.u || 0) >= since && (c.w || 0) > 0);
     cand.sort((a, b) => (b.w || 0) - (a.w || 0) || a.t - b.t); cand = cand.slice(0, 30);
-    if (!cand.length) { stt.textContent = ''; box.innerHTML = `<p class="mc-empty">まだ「${esc(R.name(key))}」の番付にのった挑戦状はありません。<br>挑戦状を置いて挑戦者を倒すと、番付にのります。</p>`; return; }
+    if (!cand.length) { stt.textContent = ''; box.innerHTML = `<p class="mc-empty">${T('bz_empty', { r: esc(R.name(key)) })}</p>`; return; }
     // この30日の勝ち（同じ市町村・向き・政策で何度も負けたものは1回だけ数える）
     await Promise.all(cand.map(async c => {
       try { const rs = await bzGet('r|' + c.id, () => rest('jm_res/' + c.id, { orderBy: 't', startAt: since, limitToLast: 60 })); c.res = Object.entries(rs || {}).map(([k, r]) => Object.assign({ id: k }, r)); }
@@ -454,17 +466,17 @@
     const draw = () => {
       const show = cand.filter(c => c.vw > 0).sort((a, b) => b.vw - a.vw || (b.w || 0) - (a.w || 0) || a.t - b.t).slice(0, 10);
       JM.R.freeIn(box); box.innerHTML = '';
-      if (!show.length) { if (!busy) box.innerHTML = `<p class="mc-empty">この30日、「${esc(R.name(key))}」で挑戦者を倒した挑戦状はまだありません。</p>`; return; }
+      if (!show.length) { if (!busy) box.innerHTML = `<p class="mc-empty">${T('bz_empty30', { r: esc(R.name(key)) })}</p>`; return; }
       show.forEach((c, i) => {
         const e = D.byId.get(c.e), row = document.createElement('div'); row.className = 'bz-row' + (i === 0 ? ' top' : '');
         row.innerHTML = `<div class="bz-rank">${esc(rankName(i))}</div>`;
         row.appendChild(shapeCanvas(e, c.d, 1, 52));
         const info = document.createElement('div'); info.className = 'bz-info';
         const more = c.vi < Math.min(VMAX, c.wins.length);
-        info.innerHTML = `<small><b>${esc(c.n)}</b>さんの</small><b class="nm">${esc(e.n)}</b><small>${esc(e.where || e.pn)}${e.c ? ' ' + esc(e.c) : ''}</small><span class="bz-w"><span>30日で<b>${c.vw}${c.vw >= VMAX ? '勝以上' : '勝'}</b></span><span>通算${c.w || 0}勝${c.l || 0}敗</span>${more ? '<i>確認中</i>' : ''}</span>`;
+        info.innerHTML = `<small>${T('bz_whose', { n: esc(who(c.n)) })}</small><b class="nm">${esc(e.dn)}</b><small>${esc(e.dwhere || e.dpn)}${!e.dwhere && e.dc ? ' ' + esc(e.dc) : ''}</small><span class="bz-w"><span>${T(c.vw >= VMAX ? 'bz_30wp' : 'bz_30w', { w: c.vw })}</span><span>${T('bz_total', { w: c.w || 0, l: c.l || 0 })}</span>${more ? `<i>${T('checking')}</i>` : ''}</span>`;
         row.appendChild(info);
-        const b = document.createElement('button'); b.className = 'btn sm hot'; b.textContent = '挑む';
-        if (mine().includes(c.id)) { b.textContent = 'あなた'; b.disabled = true; } else b.onclick = () => { JM.S && JM.S.play && JM.S.play('ui'); C.start(c); };
+        const b = document.createElement('button'); b.className = 'btn sm hot'; b.textContent = T('challenge');
+        if (mine().includes(c.id)) { b.textContent = T('you'); b.disabled = true; } else b.onclick = () => { JM.S && JM.S.play && JM.S.play('ui'); C.start(c); };
         row.appendChild(b); box.appendChild(row);
       });
     };
@@ -475,7 +487,7 @@
     for (const [c, r] of jobs) {
       if (tokn !== bzToken) return;
       const key2 = c.id + '/' + r.id, known = ver()[key2] != null;
-      if (!known) { stt.textContent = `勝ちを確かめています… ${k + 1}/${jobs.length}`; await new Promise(res => setTimeout(res, 15)); }
+      if (!known) { stt.textContent = T('verifying', { k: k + 1, n: jobs.length }); await new Promise(res => setTimeout(res, 15)); }
       let ok = false; try { ok = await C.verify(c, r, key2); } catch (e) { ok = false; }
       k++; c.vi++; if (ok) c.vw++;
       if (!known || Date.now() - lastDraw > 400 || k === jobs.length) { draw(); lastDraw = Date.now(); }

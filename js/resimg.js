@@ -5,25 +5,28 @@
 // =============================================
 (function () {
   const JM = window.JM, D = JM.D, R = JM.R;
+  const T = (k, v) => I18N.t(k, v);
   const W = 1200, H = 675, LW = 700, RX = 935;
-  const F_BIG = '"Dela Gothic One", sans-serif', F_FUDE = '"Yuji Syuku", serif', F_UI = '"M PLUS Rounded 1c", sans-serif';
+  // 韓国語の字は Dela Gothic One・Yuji Syuku にないので Black Han Sans で出す
+  const F_BIG = '"Dela Gothic One", "Black Han Sans", sans-serif', F_FUDE = '"Yuji Syuku", "Black Han Sans", serif', F_UI = '"M PLUS Rounded 1c", sans-serif';
   const fmt = n => Math.round(n).toLocaleString('ja-JP');
   const isCountry = e => e.p === 48;
-  const nameOf = e => e.n;
-  const whereOf = e => e.where || (e.pn + (e.c ? ' ' + e.c : ''));
+  // 画面に出す名前（言語ごとの表示名。日本語のときは元のまま）
+  const nameOf = e => e.dn || e.n;
+  const whereOf = e => e.dwhere || ((e.dpn != null ? e.dpn : e.pn) + ((e.dc != null ? e.dc : e.c) ? ' ' + (e.dc != null ? e.dc : e.c) : ''));
 
   // 自慢の一言（条件にあうものを、強い順に2つまで）
   JM.resultTags = function (r, e0, e1) {
     const out = [];
-    if (r.winner < 0) { if (r.endBy === 'time') out.push({ t: '時間切れ判定' }); return out; }
+    if (r.winner < 0) { if (r.endBy === 'time') out.push({ t: T('tg_time') }); return out; }
     const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1, wr = r.winner ? r.rb : r.ra;
-    if (r.gk) out.push({ t: '下剋上！', gold: true });
-    if (!isCountry(w) && isCountry(l)) out.push({ t: '国を倒した！', gold: true });
-    if (w.t && !l.t) out.push({ t: '時代をこえて', gold: true });
-    if (r.endBy === 'break' && r.hitN === 1) out.push({ t: '一撃！', gold: true });
-    if (w.p === l.p && w.p !== 48) out.push({ t: w.p < 48 ? '地元対決' : '国内対決' });
-    if (r.endBy === 'break' && wr < 0.45) out.push({ t: 'ギリギリの勝ち' });
-    if (r.endBy === 'time') out.push({ t: '時間切れ判定' });
+    if (r.gk) out.push({ t: T('tg_gk'), gold: true });
+    if (!isCountry(w) && isCountry(l)) out.push({ t: T('tg_country'), gold: true });
+    if (w.t && !l.t) out.push({ t: T('tg_era'), gold: true });
+    if (r.endBy === 'break' && r.hitN === 1) out.push({ t: T('tg_onehit'), gold: true });
+    if (w.p === l.p && w.p !== 48) out.push({ t: T(w.p < 48 ? 'tg_local' : 'tg_domestic') });
+    if (r.endBy === 'break' && wr < 0.45) out.push({ t: T('tg_close') });
+    if (r.endBy === 'time') out.push({ t: T('tg_time') });
     return out.slice(0, 2);
   };
 
@@ -31,7 +34,7 @@
   function popNote(w, l) {
     if (!w.pop || !l.pop) return '';
     const k = l.pop / w.pop;
-    if (k >= 5) return `人口は相手の${fmt(k)}分の1`;
+    if (k >= 5) return T('pop_note', { k: fmt(k) });
     return '';
   }
 
@@ -56,7 +59,7 @@
       document.fonts.load('400 80px "Dela Gothic One"', '地元の最強勝ち'),
       document.fonts.load('400 60px "Yuji Syuku"', '勝負ありの勝ち！引き分け'),
       document.fonts.load('800 20px "M PLUS Rounded 1c"', 'のこり破る'),
-    ]);
+    ].concat(I18N.lang === 'ko' ? [document.fonts.load('400 60px "Black Han Sans"', '우리동네최강승리')] : [], I18N.lang === 'zh' ? [document.fonts.load('900 30px "Noto Sans TC"', '家鄉最強')] : []));
     await Promise.race([wait, new Promise(r => setTimeout(r, 2500))]).catch(() => {});
   }
 
@@ -100,22 +103,25 @@
     // ロゴ
     c.textAlign = 'left'; c.font = '400 30px ' + F_BIG;
     c.lineWidth = 6; c.strokeStyle = 'rgba(23,17,13,.8)'; c.lineJoin = 'round';
-    c.strokeText('地元の最強', 30, 44); c.fillStyle = '#fff'; c.fillText('地元の', 30, 44); c.fillStyle = '#ffcf3a'; c.fillText('最強', 30 + c.measureText('地元の').width, 44);
+    if (I18N.lang === 'zh') c.font = '900 30px "Noto Sans TC", ' + F_BIG;
+    const g1 = T('logo1'), g2 = T('logo2');
+    c.strokeText(g1 + g2, 30, 44); c.fillStyle = '#fff'; c.fillText(g1, 30, 44); c.fillStyle = '#ffcf3a'; c.fillText(g2, 30 + c.measureText(g1).width, 44);
     // ---- 右：勝ち名乗り ----
     const draw = r.winner < 0, w = draw ? null : (r.winner ? e1 : e0), l = draw ? null : (r.winner ? e0 : e1);
     // 朱のはんこ
     c.save(); c.translate(1100, 92); c.rotate(0.12);
     c.fillStyle = draw ? '#6a5a4a' : '#c8281c'; c.beginPath(); c.arc(0, 0, 58, 0, Math.PI * 2); c.fill();
     c.strokeStyle = '#f6eedb'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, 50, 0, Math.PI * 2); c.stroke();
-    c.fillStyle = '#f6eedb'; c.textAlign = 'center'; c.font = '400 34px ' + F_FUDE;
-    if (draw) { c.fillText('痛み', 0, -16); c.fillText('分け', 0, 22); } else { c.fillText('勝負', 0, -16); c.fillText('あり', 0, 22); }
+    c.fillStyle = '#f6eedb'; c.textAlign = 'center'; c.font = (I18N.lang === 'en' ? '400 22px ' : '400 34px ') + F_FUDE;
+    const stp = T(draw ? 'stamp_draw' : 'stamp_win').split('|');
+    if (stp[1]) { c.fillText(stp[0], 0, -16); c.fillText(stp[1], 0, 22); } else { c.font = '400 28px ' + F_FUDE; c.fillText(stp[0], 0, 3); }
     c.restore();
     c.textAlign = 'center';
     let y;
     if (draw) {
-      c.font = '400 92px ' + F_FUDE; c.fillStyle = '#fff'; c.fillText('引き分け', RX, 250);
+      c.font = '400 92px ' + F_FUDE; c.fillStyle = '#fff'; c.fillText(T('draw'), RX, 250);
       c.font = '800 26px ' + F_UI; c.fillStyle = '#d8c6a4';
-      const a = fitLines(c, D.fname(e0) + ' と ' + D.fname(e1), s => `800 ${s}px ${F_UI}`, 26, 18, 470);
+      const a = fitLines(c, T('img_and', { a: D.fname(e0), b: D.fname(e1) }), s => `800 ${s}px ${F_UI}`, 26, 18, 470);
       a.lines.forEach((t, i) => c.fillText(t, RX, 350 + i * 32)); y = 350 + a.lines.length * 32;
     } else {
       // 位置は固定（長い名前でも下の段とかさならないように）
@@ -130,8 +136,8 @@
         c.lineWidth = Math.max(8, nm.s * 0.13); c.strokeStyle = '#7a1a12'; c.strokeText(t, RX, yy);
         const gr = c.createLinearGradient(0, yy - nm.s / 2, 0, yy + nm.s / 2); gr.addColorStop(0, '#fff6d8'); gr.addColorStop(1, '#ffcf3a'); c.fillStyle = gr; c.fillText(t, RX, yy);
       });
-      c.font = '400 64px ' + F_FUDE; c.fillStyle = '#fff'; c.fillText('の勝ち！', RX, 340);
-      const lt = fitLines(c, D.fname(l) + ' を破る', s => `800 ${s}px ${F_UI}`, 26, 20, 480);
+      c.font = '400 64px ' + F_FUDE; c.fillStyle = '#fff'; c.fillText(T('img_wins'), RX, 340);
+      const lt = fitLines(c, T('img_beat', { n: D.fname(l) }), s => `800 ${s}px ${F_UI}`, 26, 20, 480);
       c.fillStyle = '#e9dcc0'; c.font = `800 ${lt.s}px ${F_UI}`;
       if (lt.lines.length === 1) c.fillText(lt.lines[0], RX, 396); else { c.fillText(lt.lines[0], RX, 386); c.fillText(lt.lines[1], RX, 386 + lt.s + 4); }
       const pn = popNote(w, l); if (pn) { c.font = '800 19px ' + F_UI; c.fillStyle = '#ffcf3a'; c.fillText(pn, RX, lt.lines.length === 1 ? 428 : 440); }
@@ -142,7 +148,10 @@
     const bar = (yy, e, b, side) => {
       const x0 = RX - 210, bw = 420, p = Math.round(b.ratio() * 100);
       c.textAlign = 'left'; c.font = '800 20px ' + F_UI; c.fillStyle = '#efe4cc';
-      const nmx = e.n.length > 11 ? e.n.slice(0, 11) + '…' : e.n; c.fillText(nmx, x0, yy);
+      let nmx = nameOf(e);
+      if (I18N.lang === 'ja') nmx = nmx.length > 11 ? nmx.slice(0, 11) + '…' : nmx;
+      else if (c.measureText(nmx).width > 320) { while (nmx.length > 1 && c.measureText(nmx + '…').width > 320) nmx = nmx.slice(0, -1); nmx = nmx.trim() + '…'; }
+      c.fillText(nmx, x0, yy);
       c.textAlign = 'right'; c.font = '400 26px ' + F_BIG; c.fillStyle = side === r.winner ? '#ffcf3a' : '#a89c90'; c.fillText(p + '%', x0 + bw, yy);
       c.fillStyle = 'rgba(255,255,255,.13)'; c.fillRect(x0, yy + 18, bw, 10);
       c.fillStyle = R.COL[side].f; c.fillRect(x0, yy + 18, bw * Math.max(0, Math.min(1, b.ratio())), 10);
@@ -152,7 +161,7 @@
     // 札（自慢の一言・政策・挑戦状）
     const tags = JM.resultTags(r, e0, e1).slice();
     if (!draw && o.pol) for (const k of o.cards[r.winner] || []) tags.push({ t: JM.POL[k].n });
-    if (o.chal) tags.push({ t: o.chal.n + 'さんの挑戦状' });
+    if (o.chal) tags.push({ t: T('tg_chal', { n: JM.who(o.chal.n) }) });
     let tx = RX - 210, ty = by + 98; c.textAlign = 'left'; c.font = '800 19px ' + F_UI;
     for (const g of tags) {
       const tw = c.measureText(g.t).width + 26; if (tx + tw > RX + 215) break;
@@ -161,7 +170,7 @@
     }
     // 下の帯
     c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(0, H - 44, W, 44);
-    c.font = '800 18px ' + F_UI; c.fillStyle = '#d8c6a4'; c.textAlign = 'left'; c.fillText('#地元の最強', 24, H - 22);
+    c.font = '800 18px ' + F_UI; c.fillStyle = '#d8c6a4'; c.textAlign = 'left'; c.fillText(T('hashtag'), 24, H - 22);
     c.textAlign = 'right'; c.fillText(o.url.replace('https://', '').replace(/\/$/, ''), W - 24, H - 22);
   };
 })();

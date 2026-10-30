@@ -3,6 +3,15 @@
 // =============================================
 (function () {
   const JM = window.JM, D = JM.D, R = JM.R;
+  const T = (k, v) => I18N.t(k, v);
+  const JA = () => I18N.lang === 'ja';
+  // 能力・政策・階級の名前（rules.js）を、いまの言語の表示にする。中身の数字はそのまま
+  function relabelRules() {
+    for (const x of JM.STATS) { x.n = T('st_' + x.k); x.from = T('stf_' + x.k); }
+    for (const p of JM.POLICIES) { p.n = T('pol_' + p.k); p.t = T('polt_' + p.k); }
+    for (const c of JM.CLASSES) { c.n = T('cls_' + c.k); c.t = T('clst_' + c.k); }
+  }
+  relabelRules();
   const $ = id => document.getElementById(id);
   const URL_GAME = 'https://nasubi-no-oniwa.github.io/jimoto/';
   const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
@@ -23,25 +32,25 @@
   // ---------- 表示用 ----------
   const fmt = n => n.toLocaleString('ja-JP');
   function popText(e) {
-    if (!e.pop) return '人口 不明';
+    if (!e.pop) return T('pop_unknown');
     // 海外の州などの人口は、町の人口から割り振った大まかな推定なので、けただけ出す
-    if (e.pe && e.p >= 100) { const b = [[1e7, '1000万人以上'], [1e6, '100万人以上'], [1e5, '10万人以上'], [1e4, '1万人以上'], [0, '1万人未満']].find(x => e.pop >= x[0])[1]; return `人口 ${b} <span class="est">（推定）</span>`; }
-    if (e.pe) return `人口 約${fmt(e.pop)}人 <span class="est">（${e.py}年ごろの推定）</span>`;
-    return e.py ? `人口 ${fmt(e.pop)}人（${e.py}年）` : `人口 ${fmt(e.pop)}人`;
+    if (e.pe && e.p >= 100) { const b = [[1e7, 'pop_b0'], [1e6, 'pop_b1'], [1e5, 'pop_b2'], [1e4, 'pop_b3'], [0, 'pop_b4']].find(x => e.pop >= x[0])[1]; return T('pop_band', { b: T(b) }); }
+    if (e.pe) return T('pop_est', { n: fmt(e.pop), y: e.py });
+    return e.py ? T('pop_n_y', { n: fmt(e.pop), y: e.py }) : T('pop_n', { n: fmt(e.pop) });
   }
-  function areaText(e) { return '面積 ' + (e.a >= 100 ? fmt(Math.round(e.a)) : e.a.toFixed(1)) + 'km²'; }
+  function areaText(e) { return T('area', { a: e.a >= 100 ? fmt(Math.round(e.a)) : e.a.toFixed(1) }); }
   JM.popText = popText; JM.areaText = areaText;
   const editable = i => (st.mode === 'local' && !(st.chal && i === 1)) || st.my === i;
   // ---------- 1つの枠を描く ----------
   function renderSlot(i) {
-    const el = $('slot' + i), s = st.slots[i], side = ['左・赤', '右・青'][i];
+    const el = $('slot' + i), s = st.slots[i], side = T('side' + i);
     R.freeIn(el);   // 前の絵のキャンバスを片づけてから描きなおす
     if (st.mode !== 'local' && i !== st.my && !st.reveal) {
-      el.innerHTML = `<span class="sl-side">${side}</span><div class="hidden-foe">${st.mode === 'watch' ? 'ふたりが準備中…' : (st.foeReady ? 'あいては準備OK！' : 'あいてが準備中…')}<br>（公開まで見えません）</div>`;
+      el.innerHTML = `<span class="sl-side">${side}</span><div class="hidden-foe">${T(st.mode === 'watch' ? 'foe_both' : (st.foeReady ? 'foe_ready' : 'foe_prep'))}<br>${T('foe_hidden')}</div>`;
       return;
     }
     if (!s.e) {
-      el.innerHTML = `<span class="sl-side">${side}</span><div class="sl-empty"><div>市町村・国をえらんでください</div><div class="row"><button class="btn hot" data-pick="${i}">えらぶ</button><button class="btn" data-rand="${i}">おまかせ</button></div></div>`;
+      el.innerHTML = `<span class="sl-side">${side}</span><div class="sl-empty"><div>${T('pick_prompt')}</div><div class="row"><button class="btn hot" data-pick="${i}">${T('pick')}</button><button class="btn" data-rand="${i}">${T('random')}</button></div></div>`;
       return;
     }
     const e = s.e, bd = D.badge(e), usePol = st.pol === 'pol';
@@ -51,9 +60,9 @@
       <div class="sl-top">
         <div class="sl-shape"><canvas width="240" height="240" style="width:120px;height:120px" data-shape="${i}"></canvas>
           ${ed ? `<div class="dir"><button class="btn sm" data-rot="${i}" data-d="-1">⟲</button><button class="btn sm" data-rot="${i}" data-d="1">⟳</button></div>` : ''}
-          <div class="dir-lab">向き ${s.dir * 45}°</div></div>
+          <div class="dir-lab">${T('dir_lab', { d: s.dir * 45 })}</div></div>
         <div class="sl-info">
-          <div class="sl-name"><small>${esc(e.where || (e.pn + ' ' + (e.c || '')))}</small>${esc(e.n)}<small>${esc(e.kd)}</small></div>
+          <div class="sl-name"><small>${esc(e.dwhere || (e.dpn + ' ' + (e.dc || '')))}</small>${esc(e.dn)}<small>${JA() ? esc(e.kd) : ''}</small></div>
           <span class="badge ${bd.cur ? '' : 'old'}">${esc(bd.txt)}</span>
           <div class="sl-data">${areaText(e)}<br>${popText(e)}<br>${esc(D.years(e))}</div>
         </div>
@@ -66,7 +75,7 @@
     h += `</div></div>`;
     if (usePol) {
       const kf = JM.kofukin(e.pop);
-      h += `<div class="pol-h"><b>政策カード（${s.cards.length}/${JM.MAXCARDS}枚）</b><span class="bud">予算 <b>${comp.budget - comp.spent}</b>/${comp.budget}${kf ? `<span class="kof">（交付金＋${kf}）</span>` : ''}</span></div><div class="pols">`;
+      h += `<div class="pol-h"><b>${T('pol_head', { n: s.cards.length, m: JM.MAXCARDS })}</b><span class="bud">${T('budget', { a: comp.budget - comp.spent, b: comp.budget })}${kf ? `<span class="kof">${T('kof', { n: kf })}</span>` : ''}</span></div><div class="pols">`;
       let spent = 0; const kfSet = new Set();
       for (const k of s.cards) { const c = JM.POL[k].c; if (spent + c > JM.BASE_BUDGET) kfSet.add(k); spent += c; }
       for (const p of JM.POLICIES) {
@@ -75,14 +84,14 @@
       }
       h += `</div>`;
     }
-    if (!JM.inClass(st.cls, e.pop)) h += `<div class="cls-warn">「${JM.CLS[st.cls].n}」（${JM.CLS[st.cls].t}）には出られません</div>`;
-    if (ed) h += `<div class="sl-btns"><button class="btn sm" data-pick="${i}">べつの市町村</button><button class="btn sm" data-rand="${i}">おまかせ</button></div>`;
+    if (!JM.inClass(st.cls, e.pop)) h += `<div class="cls-warn">${T('cls_warn', { n: JM.CLS[st.cls].n, t: JM.CLS[st.cls].t })}</div>`;
+    if (ed) h += `<div class="sl-btns"><button class="btn sm" data-pick="${i}">${T('pick_other')}</button><button class="btn sm" data-rand="${i}">${T('random')}</button></div>`;
     el.innerHTML = h;
     const cv = el.querySelector('[data-shape]'); if (cv && s.parts) {
       const c = cv.getContext('2d'); if (c) { c.clearRect(0, 0, 240, 240);
       R.shapeIcon(c, s.parts, 120, 120, 170, s.dir, i, { facing: true, lw: 3 });
       // 相手のほうの矢印
-      c.fillStyle = 'rgba(60,40,20,.55)'; c.font = '900 26px sans-serif'; c.textAlign = i ? 'left' : 'right'; c.fillText(i ? '◀ 相手' : '相手 ▶', i ? 8 : 232, 228); }
+      c.fillStyle = 'rgba(60,40,20,.55)'; c.font = '900 26px sans-serif'; c.textAlign = i ? 'left' : 'right'; c.fillText(T(i ? 'foe_l' : 'foe_r'), i ? 8 : 232, 228); }
     }
     const rv = el.querySelector('[data-radar]'); if (rv && rv.getContext('2d')) { const c = rv.getContext('2d'); c.clearRect(0, 0, 300, 270); c.save(); c.scale(2, 2); R.radar(c, 75, 70, 48, e.st, usePol ? comp.add : null, { fs: 10 }); c.restore(); }
   }
@@ -90,16 +99,16 @@
   function updateFight() {
     const b = $('btn-fight');
     const okc = i => st.slots[i].e && JM.inClass(st.cls, st.slots[i].e.pop);
-    if (st.mode === 'local') { b.disabled = !(okc(0) && okc(1)); b.textContent = 'はっけよい！'; return; }
-    if (st.mode === 'watch') { b.disabled = true; b.textContent = '観戦中'; return; }
+    if (st.mode === 'local') { b.disabled = !(okc(0) && okc(1)); b.textContent = T('fight_btn'); return; }
+    if (st.mode === 'watch') { b.disabled = true; b.textContent = T('watching'); return; }
     const mine = st.slots[st.my];
-    b.disabled = !okc(st.my) || !!st.myReady; b.textContent = st.myReady ? '準備OK（あいて待ち）' : '準備OK！';
+    b.disabled = !okc(st.my) || !!st.myReady; b.textContent = T(st.myReady ? 'ready_wait' : 'ready_ok');
   }
   // ---------- 市町村をセット ----------
   async function setSlot(i, e) {
     const s = st.slots[i]; s.e = e; s.parts = null; s.cards = s.cards.filter(k => JM.canAdd(s.cards.filter(x => x !== k), k, e.pop));
     renderSlot(i);
-    try { s.parts = await D.shape(e.id); } catch (er) { toast('形を読みこめませんでした'); }
+    try { s.parts = await D.shape(e.id); } catch (er) { toast(T('shape_err')); }
     if (s.e === e) renderSlot(i);
     saveSlots(); updateFight(); if (st.mode !== 'local' && JM.Net) JM.Net.changed();
   }
@@ -114,7 +123,7 @@
   // ---------- 検索 ----------
   let pickFor = 0;
   function openPicker(i) {
-    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? '全' + fmt(D.list.length) + 'の市町村・区・国から探せます。' : '「' + cl.n + '」（' + cl.t + '）から探します。') + '例：「ふちゅう」「湯布院」「広島県 安芸郡」「フランス」「昔の国」';
+    pickFor = i; $('picker').classList.add('on'); $('pk-q').value = ''; $('pk-list').innerHTML = ''; const cl = JM.CLS[st.cls]; $('pk-hint').textContent = (st.cls === 'all' ? T('pk_all', { n: fmt(D.list.length) }) : T('pk_cls', { c: cl.n, t: cl.t })) + T('pk_eg');
     setTimeout(() => $('pk-q').focus(), 50);
   }
   function runSearch() {
@@ -123,11 +132,15 @@
     if (!res.length) {
       // 階級でしぼっているせいで見つからないときは、そう伝える
       const all = st.cls !== 'all' ? D.search(q, 1, null).length : 0;
-      ul.innerHTML = all ? `<li class="pk-note">「${esc(JM.CLS[st.cls].n)}」にはありません。上で「全体の部」にすると出てきます（${D.lastCount}件）</li>` : '<li class="pk-note">見つかりませんでした。漢字・ひらがなのどちらでも、空白で区切って「広島県 安芸郡」のようにしぼれます。<br>樺太（敷香町など）など、戦前の外地の町村は入っていません</li>';
+      ul.innerHTML = all ? `<li class="pk-note">${T('pk_notcls', { c: esc(JM.CLS[st.cls].n), n: D.lastCount })}</li>` : '<li class="pk-note">' + T('pk_nf') + '</li>';
       return;
     }
-    const more = D.lastCount > res.length ? `<li class="pk-note">${D.lastCount}件見つかりました。多いので最初の${res.length}件だけ出しています。空白で区切って言葉を足すと、しぼれます</li>` : '';
-    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${e.where ? '<small>' + esc(e.where) + '</small> ' : esc(e.pn) + ' ' + (e.c ? '<small>' + esc(e.c) + '</small> ' : '')}${esc(e.n)}</span><span class="kn">${esc(e.kd)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
+    const more = D.lastCount > res.length ? `<li class="pk-note">${T('pk_more', { n: D.lastCount, m: res.length })}</li>` : '';
+    const ja = JA();
+    // 外国語：名前を大きく、その下に「どこの何か」（県・国・郡）
+    const nmOf = e => ja ? `${e.where ? '<small>' + esc(e.where) + '</small> ' : esc(e.pn) + ' ' + (e.c ? '<small>' + esc(e.c) + '</small> ' : '')}${esc(e.n)}` : esc(e.dn);
+    const knOf = e => ja ? esc(e.kd) : esc(e.dwhere || (e.dpn + (e.dc ? ' ' + e.dc : '')));
+    ul.innerHTML = more + res.map(e => { const b = D.badge(e); return `<li data-id="${e.id}"><div><span class="nm">${nmOf(e)}</span><span class="kn">${knOf(e)}</span></div><div class="bd"><span class="badge ${b.cur ? '' : 'old'}">${esc(b.txt)}</span></div></li>`; }).join('');
   }
   // ---------- 試合 ----------
   function defOf(i) {
@@ -135,10 +148,10 @@
     return { key: s.e.id, parts: s.parts, st: comp.st, pol: usePol ? s.cards.slice() : [] };
   }
   JM.defOf = defOf;
-  function shortName(e) { return e.p >= 100 ? e.pn + ' ' + e.n : e.n; }
+  function shortName(e) { return JA() ? (e.p >= 100 ? e.pn + ' ' + e.n : e.n) : (e.p >= 100 ? D.fname(e) : e.dn); }
   // 全部を先に計算して結果を知っておく → そのあと同じ計算を見せる
   function startBattle(fromNet) {
-    if (!st.slots[0].parts || !st.slots[1].parts) { toast('形を読みこみ中です'); return; }
+    if (!st.slots[0].parts || !st.slots[1].parts) { toast(T('shape_loading')); return; }
     const a = defOf(0), b = defOf(1), d0 = st.slots[0].dir, d1 = st.slots[1].dir;
     const pre = new JM.Match(a, b, d0, d1); let lastHit = 0, lastEv = null;
     while (!pre.over) { pre.tick(); for (const e of pre.ev) if (e.k === 'hit') { lastHit = pre.step; lastEv = e; } pre.ev.length = 0; }
@@ -146,7 +159,7 @@
     st.live = new JM.Match(a, b, d0, d1); st.liveT = -1.4; st.acc = 0; st.done = false; st.goSaid = false; st.slow = false;
     $('hn0').textContent = shortName(st.slots[0].e); $('hn1').textContent = shortName(st.slots[1].e);
     show('s-battle'); $('result').classList.remove('on'); R.fx = [];
-    call('はっけよい', 1.1); S().play('start'); S().bgm('battle');
+    call(T('call_ready'), 1.1); S().play('start'); S().bgm('battle');
     if (JM.Net && !fromNet) JM.Net.digest && 0;
     return st.result;
   }
@@ -157,7 +170,7 @@
     const m = st.live; if (!m) return;
     st.liveT += dt;
     if (st.liveT < 0) return;
-    if (st.liveT < 0.3 && !st.goSaid) { st.goSaid = true; call('のこった！', 0.7); S().play('go'); }
+    if (st.liveT < 0.3 && !st.goSaid) { st.goSaid = true; call(T('call_go'), 0.7); S().play('go'); }
     // 決着の少し前からスロー
     let k = st.speed; const toEnd = st.result.lastHit - m.step;
     if (st.result.endBy === 'break' && toEnd >= 0 && toEnd < 60) k = 0.22;
@@ -177,21 +190,21 @@
     const m = st.live, r = st.result;
     const e0 = st.slots[0].e, e1 = st.slots[1].e;
     let t, line;
-    if (r.winner < 0) { t = '引き分け'; line = `${D.fname(e0)} と ${D.fname(e1)} は引き分け！`; }
-    else { const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1; t = `${w.p >= 100 ? D.fname(w) : w.n}の勝ち！`; line = `${D.fname(w)}が${D.fname(l)}に勝った！`; }
+    if (r.winner < 0) { t = T('draw'); line = T('draw_line', { a: D.fname(e0), b: D.fname(e1) }); }
+    else { const w = r.winner ? e1 : e0, l = r.winner ? e0 : e1; t = T('wins', { n: w.p >= 100 ? D.fname(w) : w.dn }); line = T('win_line', { w: D.fname(w), l: D.fname(l) }); }
     // 下剋上：もとの能力の合計がずっと下の方が勝った
     st.gk = r.winner >= 0 && (JM.statSum((r.winner ? e0 : e1).st) - JM.statSum((r.winner ? e1 : e0).st) >= JM.GEKOKUJO);
-    if (st.gk) line = '【下剋上】' + line;
-    call((st.gk ? '下剋上！\n' : '') + t + (r.endBy === 'time' ? '<small>時間切れ・残りの多さで勝負</small>' : ''), st.gk ? 2.2 : 1.6);
+    if (st.gk) line = T('gk_prefix') + line;
+    call((st.gk ? T('gk_call') + '\n' : '') + t + (r.endBy === 'time' ? '<small>' + T('time_small') + '</small>' : ''), st.gk ? 2.2 : 1.6);
     S().play(r.winner < 0 ? 'draw' : 'win');
     if (JM.Net && st.mode !== 'local') JM.Net.finished(r);
     setTimeout(() => {
-      $('res-t').innerHTML = (st.gk ? '<span class="gk">下剋上</span><br>' : '') + esc(t); $('res-line').textContent = line + (r.endBy === 'time' ? '（時間切れ判定）' : '');
+      $('res-t').innerHTML = (st.gk ? '<span class="gk">' + T('gk_badge') + '</span><br>' : '') + esc(t); $('res-line').textContent = line + (r.endBy === 'time' ? T('time_judge') : '');
       prepareImage(line);
-      $('res-note').textContent = st.mode === 'local' ? '同じ組み合わせ・向き・政策なら、いつでも同じ結果になります。' : (st.netNote || '');
+      $('res-note').textContent = st.mode === 'local' ? T('res_note_local') : (st.netNote || '');
       $('btn-chal-put').hidden = !(st.mode === 'local' && !st.chal); $('btn-chal-next').hidden = !st.chal;
-      if (st.chal) { $('res-line').textContent = line + '　…成績をつけています'; JM.Chal.onResult(r.winner).then(t => { if (t) $('res-line').textContent = t; }); }
-      $('btn-change').textContent = st.mode === 'local' ? (st.chal ? '自分の市町村を変える' : '組み合わせを変える') : (st.mode === 'watch' ? 'もどる' : 'もう一戦（えらびなおす）');
+      if (st.chal) { $('res-line').textContent = line + T('rec_ing'); JM.Chal.onResult(r.winner).then(t => { if (t) $('res-line').textContent = t; }); }
+      $('btn-change').textContent = T(st.mode === 'local' ? (st.chal ? 'change_mine' : 'change_pair') : (st.mode === 'watch' ? 'back' : 'rematch_re'));
       $('result').classList.add('on');
     }, 1500);
   }
@@ -202,17 +215,17 @@
     st.imgReady = false; st.imgLine = line;
     r.gk = st.gk;
     const lose = me >= 0 && r.winner >= 0 && r.winner !== me;
-    $('btn-img').textContent = r.winner < 0 || lose ? '結果画像を出す' : '勝利画像を出す';
+    $('btn-img').textContent = T(r.winner < 0 || lose ? 'img_result' : 'img_win');
     // 投稿文
-    const c = st.chal, tags = JM.resultTags(r, st.slots[0].e, st.slots[1].e).map(x => x.t.replace(/！$/, ''));
-    let text = (tags.length ? '【' + tags.join('・') + '】' : '') + line;
-    if (c) text += `\n${c.n}さんの挑戦状に挑戦！あなたも→ ${JM.Chal.link(c.id)}`;
+    const c = st.chal, tags = JM.resultTags(r, st.slots[0].e, st.slots[1].e).map(x => x.t.replace(/[！!]$/, ''));
+    let text = (tags.length ? T('sh_tags', { t: tags.join(T('sh_tag_sep')) }) : '') + line;
+    if (c) text += T('sh_chal', { n: JM.who(c.n), u: JM.Chal.link(c.id) });
     else text += '\n' + URL_GAME;
-    st.shareText = text + '\n#地元の最強';
+    st.shareText = text + '\n' + T('hashtag');
   }
   async function openImage() {
     const r = st.result; if (!r || !st.live) return;
-    const cv = $('res-img'), btn = $('btn-img'); btn.disabled = true; const t0 = btn.textContent; btn.textContent = '画像を作っています…';
+    const cv = $('res-img'), btn = $('btn-img'); btn.disabled = true; const t0 = btn.textContent; btn.textContent = T('img_making');
     try {
       if (!st.imgReady) {
         await JM.drawResultImage(cv, { m: st.live, r, e: [st.slots[0].e, st.slots[1].e], cards: [st.slots[0].cards, st.slots[1].cards], pol: st.pol === 'pol', chal: st.chal, url: URL_GAME });
@@ -221,7 +234,7 @@
       const old = $('iv-img').src; if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
       $('iv-img').src = await new Promise(res => cv.toBlob(b => res(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')), 'image/png'));
       $('imgview').classList.add('on');
-    } catch (e) { toast('画像を作れませんでした'); }
+    } catch (e) { toast(T('img_fail')); }
     btn.disabled = false; btn.textContent = t0;
   }
   async function share() {
@@ -234,7 +247,7 @@
     saveImg(blob);
     const u = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(st.shareText);
     window.open(u, '_blank');
-    toast('画像を保存しました。投稿画面に貼りつけてください');
+    toast(T('img_saved_paste'));
   }
   function saveImg(blob) {
     const go = b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'jimoto-saikyo.png'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
@@ -280,8 +293,8 @@
     $('btn-howto').onclick = () => { S().play('ui'); show('s-howto'); };
     $('btn-how-back').onclick = () => { S().play('ui'); show('s-title'); };
     $('btn-setup-back').onclick = () => { S().play('ui'); if (st.mode !== 'local' && JM.Net) JM.Net.leave(); toTitle(); };
-    $('btn-snd').onclick = () => { S().unlock && S().unlock(); const m = !(JM.mute && JM.mute()); JM.mute && JM.mute(m); $('snd-name').textContent = m ? 'なし' : 'あり'; };
-    for (const b of document.querySelectorAll('.seg')) b.onclick = () => { if (st.mode === 'watch' || (st.mode === 'net' && st.reveal)) return; if (st.rnd || st.chal) { toast(st.rnd ? 'だれかと対戦は「全体の部・政策あり」で戦います' : '挑戦状のルールで戦います'); return; } st.pol = b.dataset.mode; store('jm_pol', st.pol); syncMode(); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
+    $('btn-snd').onclick = () => { S().unlock && S().unlock(); const m = !(JM.mute && JM.mute()); JM.mute && JM.mute(m); $('snd-name').textContent = T(m ? 'snd_off' : 'snd_on'); };
+    for (const b of document.querySelectorAll('.seg')) b.onclick = () => { if (st.mode === 'watch' || (st.mode === 'net' && st.reveal)) return; if (st.rnd || st.chal) { toast(T(st.rnd ? 'rnd_rule' : 'chal_rule')); return; } st.pol = b.dataset.mode; store('jm_pol', st.pol); syncMode(); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
     document.addEventListener('click', ev => {
       const t = ev.target.closest('[data-pick],[data-rand],[data-rot],[data-pol]'); if (!t) return;
       S().play('ui');
@@ -319,7 +332,7 @@
       game: 'jimoto', ver: 'v5', name: '地元の最強',
       getDb: () => JM.getDb(), anchor: '#btn-online', anchorWhere: 'before', btnClass: 'btn big hot', nextClass: 'btn', nameKey: 'jm_name',
       join: (code, name) => { S().unlock && S().unlock(); JM.Net.join(name, code); },
-      cpu: () => JM.Chal.open(true), cpuLabel: '挑戦状と戦いながら待つ',
+      cpu: () => JM.Chal.open(true), cpuLabel: () => T('cpu_wait_chal'),
       quit: () => { if (JM.Net) JM.Net.leave(); toTitle(); },
       colors: { main: 'var(--red)', alt: 'var(--blue)', bg: '#f6eedb', fg: '#2a211b' },
     });
@@ -328,15 +341,32 @@
   }
   async function boot() {
     R.init($('arena'));
-    $('cls-sel').innerHTML = JM.CLASSES.map(c => `<option value="${c.k}">${c.n}${c.k === 'all' ? '' : '（' + c.t.replace('人口', '') + '）'}</option>`).join('');
+    clsOptions();
     $('cls-sel').onchange = () => { st.cls = $('cls-sel').value; store('jm_cls', st.cls); S().play('ui'); renderSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); };
     bind(); JM.Chal.bind(); setupQM();
-    $('snd-name').textContent = JM.mute && JM.mute() ? 'なし' : 'あり';
+    $('snd-name').textContent = T(JM.mute && JM.mute() ? 'snd_off' : 'snd_on');
     requestAnimationFrame(frame);
-    try { await D.load(); $('loading').textContent = '全' + fmt(D.list.length) + 'の市町村・区・国が出場できます'; } catch (e) { $('loading').textContent = '読みこめませんでした。再読みこみしてください'; return; }
+    $('loading').textContent = T('loading');
+    try { await D.load(); $('loading').textContent = T('loaded_n', { n: fmt(D.list.length) }); } catch (e) { st.loadErr = true; $('loading').textContent = T('load_err2'); return; }
     newIdle(); await loadSlots();
     JM.Chal.fromLink();
   }
   JM.boot = boot;
+  // 階級のえらび（ことばで作りなおす。えらんでいるものはそのまま）
+  function clsOptions() {
+    const sel = $('cls-sel'), v = sel.value || st.cls;
+    sel.innerHTML = JM.CLASSES.map(c => `<option value="${c.k}">${esc(T('cls_opt_' + c.k))}</option>`).join('');
+    sel.value = v;
+  }
+  // ---------- ことばの切りかえ ----------
+  const onScreen = id => { const s = document.querySelector('.screen.active'); return s && s.id === id; };
+  document.addEventListener('langchange', () => {
+    relabelRules(); clsOptions();
+    $('snd-name').textContent = T(JM.mute && JM.mute() ? 'snd_off' : 'snd_on');
+    $('loading').textContent = D.ready ? T('loaded_n', { n: fmt(D.list.length) }) : T(st.loadErr ? 'load_err2' : 'loading');
+    if (onScreen('s-setup')) { renderSlots(); if (JM.Chal) JM.Chal.header(); }
+  });
+  // 地名の表示がかわったら（data.js が出す）、地名を出している画面を描きなおす
+  document.addEventListener('namesrelabeled', () => { if (onScreen('s-setup')) renderSlots(); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
