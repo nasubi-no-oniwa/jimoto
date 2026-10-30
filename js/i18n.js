@@ -1147,7 +1147,7 @@
   "최강"
  ],
  "tagline": [
-  "市町村の<b>本物の形</b>でぶつかり合え。<br>明治から今まで、なくなった町村もぜんぶ出られる。<br><b>世界の国</b>も参戦！",
+  "市町村の<b>本物の形</b>で<wbr>ぶつかり合え。<br>明治から今まで、<wbr>なくなった町村も<wbr>ぜんぶ出られる。<br><b>世界の国</b>も参戦！",
   "Battle with the <b>real shapes</b> of Japanese towns, even ones long gone. <b>World countries</b> join too!",
   "用市町村的<b>真實形狀</b>互相碰撞。<br>從明治到現在，已消失的町村也全都能出場。<br><b>世界各國</b>也參戰！",
   "시정촌의 <b>진짜 모양</b>으로 맞붙어라.<br>메이지부터 오늘까지, 사라진 마을도 출전.<br><b>세계의 나라</b>도 참전!"
@@ -2111,6 +2111,120 @@
   "Created by processing the ROIS-DS Center for Open Data in the Humanities \"Historical Administrative Boundary Dataset (beta)\" (CC BY 4.0), based on the MLIT \"National Land Numerical Information (Administrative Boundaries)\"<br>Population: processed from the Statistics Bureau of Japan \"Census\" (e-Stat)<br>Readings: based on Japan Post \"Postal Code Data\" and MIC \"Standard Area Codes\" (e-Stat)<br>Country shapes and populations: Natural Earth (public domain)<br>Place names in other languages: Unicode CLDR, Natural Earth, GeoNames; Japanese place names romanized/transliterated from their readings<br>State/province names: Natural Earth and Unicode CLDR<br>City names: Natural Earth and GeoNames　City shapes: geoBoundaries (CC BY 4.0, etc.)　City populations: GeoNames<br>Town names: GeoNames, checked against the mecab-ipadic-NEologd dictionary (Apache License 2.0)<br>Overseas population estimates: GeoNames (CC BY 4.0)<br>Sound effects: Kenney \"Impact Sounds\" (CC0)　Music: original",
   "以國土交通省「國土數值資訊（行政區域資料）」為基礎，加工ROIS-DS人文學開放資料共同利用中心「歷史的行政區域資料集β版」（CC BY 4.0）製作<br>人口：加工總務省統計局「國勢調查」（e-Stat）製作<br>讀音：依據日本郵便「郵遞區號資料」、總務省「標準地域代碼」（e-Stat）製作<br>世界各國的形狀・人口：Natural Earth（公有領域）<br>各語言的地名：Unicode CLDR、Natural Earth、GeoNames；日本地名部分由讀音轉寫<br>州・省・縣的名稱：Natural Earth 與 Unicode CLDR<br>城市名稱：Natural Earth 與 GeoNames　城市形狀：geoBoundaries（CC BY 4.0 等）　城市人口：GeoNames<br>城鎮名稱：GeoNames，並以 mecab-ipadic-NEologd 辭典（Apache License 2.0）確認<br>海外人口推估：GeoNames（CC BY 4.0）<br>音效：Kenney「Impact Sounds」（CC0）　音樂：自製",
   "국토교통성 \"국토수치정보(행정구역 데이터)\"를 바탕으로 ROIS-DS 인문학 오픈데이터 공동이용센터 \"역사적 행정구역 데이터셋 β판\"(CC BY 4.0)을 가공해 제작<br>인구: 총무성 통계국 \"국세조사\"(e-Stat)를 가공해 제작<br>읽기: 일본우편 \"우편번호 데이터\", 총무성 \"표준지역코드\"(e-Stat)를 바탕으로 제작<br>세계 나라의 모양·인구: Natural Earth (퍼블릭 도메인)<br>각 언어의 지명: Unicode CLDR, Natural Earth, GeoNames / 일본 지명은 읽기를 바탕으로 표기<br>주·성·현의 이름: Natural Earth 와 Unicode CLDR<br>도시 이름: Natural Earth 와 GeoNames　도시 모양: geoBoundaries (CC BY 4.0 등)　도시 인구: GeoNames<br>마을 이름: GeoNames (mecab-ipadic-NEologd 사전(Apache License 2.0)으로 확인)<br>해외 인구 추정: GeoNames (CC BY 4.0)<br>효과음: Kenney \"Impact Sounds\" (CC0)　음악: 자작"
+ ],
+ "tab_empty": [
+  "えらんでね",
+  "Not chosen",
+  "尚未選擇",
+  "선택 안 함"
+ ],
+ "pol_full": [
+  "政策カードは{m}枚までです",
+  "Up to {m} policy cards",
+  "政策卡最多{m}張",
+  "정책 카드는 {m}장까지예요"
+ ],
+ "pol_nobudget": [
+  "予算が足りません（ほかのカードを外すと使えます）",
+  "Not enough budget — remove another card first",
+  "預算不足（拿掉別張卡就能用）",
+  "예산이 부족해요 (다른 카드를 빼면 쓸 수 있어요)"
+ ],
+ "rec_q_h": [
+  "録画しますか？",
+  "Record this battle?",
+  "要錄影嗎？",
+  "녹화할까요?"
+ ],
+ "rec_q_note": [
+  "録画すると、試合のあとすぐに動画で投稿できます。",
+  "Record it and you can post the video right after the battle.",
+  "錄影的話，比賽結束後就能馬上用影片發文。",
+  "녹화하면 경기가 끝나자마자 영상으로 올릴 수 있어요."
+ ],
+ "rec_yes": [
+  "録画する",
+  "Record",
+  "錄影",
+  "녹화하기"
+ ],
+ "rec_no": [
+  "録画しない",
+  "No thanks",
+  "不錄影",
+  "안 하기"
+ ],
+ "rec_on": [
+  "録画中",
+  "Recording",
+  "錄影中",
+  "녹화 중"
+ ],
+ "vid_post": [
+  "動画で投稿",
+  "Post video",
+  "用影片發文",
+  "영상으로 올리기"
+ ],
+ "vid_make": [
+  "動画を作る（約{s}秒）",
+  "Make video (~{s}s)",
+  "製作影片（約{s}秒）",
+  "영상 만들기 (약 {s}초)"
+ ],
+ "vid_making": [
+  "動画を作っています… あと{s}秒",
+  "Making video… {s}s left",
+  "影片製作中… 剩{s}秒",
+  "영상 만드는 중… {s}초 남음"
+ ],
+ "vid_finishing": [
+  "動画を仕上げ中…",
+  "Finishing video…",
+  "影片完成中…",
+  "영상 마무리 중…"
+ ],
+ "vid_fail": [
+  "動画を作れませんでした",
+  "Couldn't make the video",
+  "無法製作影片",
+  "영상을 만들 수 없었어요"
+ ],
+ "vid_nosup": [
+  "このブラウザでは動画を作れません",
+  "This browser can't make videos",
+  "這個瀏覽器無法製作影片",
+  "이 브라우저에서는 영상을 만들 수 없어요"
+ ],
+ "vid_webm": [
+  "このブラウザで作った動画は、Xに上げられない形式です（Chrome・Safari なら上げられます）",
+  "Videos made in this browser can't be uploaded to X (Chrome or Safari works)",
+  "這個瀏覽器做的影片格式無法上傳到X（用 Chrome・Safari 就可以）",
+  "이 브라우저에서 만든 영상은 X에 올릴 수 없는 형식이에요 (Chrome·Safari는 가능)"
+ ],
+ "vid_maybe": [
+  "このブラウザで作った動画は、Xに上げられないことがあります（そのときはスマホで作ってください）",
+  "Videos from this browser may not upload to X (if so, make it on your phone)",
+  "這個瀏覽器做的影片可能無法上傳到X（這時請用手機製作）",
+  "이 브라우저에서 만든 영상은 X에 안 올라갈 수도 있어요 (그럴 땐 휴대폰에서 만들어 주세요)"
+ ],
+ "vid_save": [
+  "動画を保存",
+  "Save video",
+  "儲存影片",
+  "영상 저장"
+ ],
+ "vid_saved_paste": [
+  "動画を保存しました。Xの画面で動画を添付して投稿してください",
+  "Video saved. Attach it to your post on X.",
+  "影片已儲存。請在X的畫面附上影片再發文。",
+  "영상을 저장했어요. X 화면에서 영상을 첨부해 올려 주세요."
+ ],
+ "vid_cancel": [
+  "やめる",
+  "Stop",
+  "停止",
+  "그만두기"
  ]
 };
   function pick() {

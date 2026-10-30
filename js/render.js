@@ -108,6 +108,16 @@
     }
     return c;   // 使い終わったら R.free(c) で片づける
   };
+  // 録画用：別のキャンバス（w×h）に、今の試合を描く。火花・ゆれは画面の方が進めるので、ここでは進めない
+  R.drawTo = function (c, cg, w, h, m, o) {
+    const keep = { cv, g, W, H, dpr, shake: R.shake, flash: R.flash, sc: R.sc, cx: R.cx, cy: R.cy };
+    cv = c; g = cg; W = w; H = h; dpr = 1;
+    try { R.draw(m, Object.assign({}, o, { dt: 0 })); } finally {
+      const out = { sc: R.sc, cx: R.cx, cy: R.cy };
+      cv = keep.cv; g = keep.g; W = keep.W; H = keep.H; dpr = keep.dpr; R.shake = keep.shake; R.flash = keep.flash; R.sc = keep.sc; R.cx = keep.cx; R.cy = keep.cy;
+      return out;
+    }
+  };
   function fragPath(f, sc) {
     g.beginPath(); const p = f.poly;
     g.moveTo(p[0] * sc, p[1] * sc); for (let i = 2; i < p.length; i += 2) g.lineTo(p[i] * sc, p[i + 1] * sc); g.closePath();

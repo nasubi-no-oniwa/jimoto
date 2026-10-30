@@ -275,3 +275,76 @@ html[data-lang="en"] .bz-rank,html[data-lang="ko"] .bz-rank{writing-mode:horizon
 html[data-lang="en"] .bz-row.top .bz-rank,html[data-lang="ko"] .bz-row.top .bz-rank{font-size:13px}
 /* 繁體中文：筆の字体に繁体字がないので、丸ゴシックの横書き */
 html[data-lang="zh"] .bz-rank{writing-mode:horizontal-tb;font-family:'M PLUS Rounded 1c',sans-serif;font-weight:900;font-size:14px;width:50px;min-height:52px;padding:4px;text-align:center;letter-spacing:0;line-height:1.2}
+
+/* ===== 2026-10-31 リニューアル：スマホで選びやすく ===== */
+.side-tabs { display: none; }
+@media (max-aspect-ratio: 1/1) {
+  .side-tabs { display: flex; align-items: stretch; gap: 6px; padding: 0 max(10px, env(safe-area-inset-right)) 8px max(10px, env(safe-area-inset-left)); }
+  .stab { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 14px; padding: 6px 8px; background: rgba(243,234,214,.18); color: #f3ead6; text-align: left; box-shadow: inset 0 0 0 2px rgba(243,234,214,.25); }
+  .stab canvas { width: 44px; height: 44px; flex: 0 0 auto; background: rgba(251,246,234,.9); border-radius: 10px; }
+  .st-t { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+  .st-t small { font-size: 11px; opacity: .85; }
+  .st-t b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stab.on { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 3px var(--red), 0 3px 0 rgba(0,0,0,.35); }
+  .stab.s1.on { box-shadow: inset 0 0 0 3px var(--blue), 0 3px 0 rgba(0,0,0,.35); }
+  .stab.empty:not(.on) { animation: stabPulse 1.4s ease-in-out infinite; }
+  @keyframes stabPulse { 50% { background: rgba(255,207,58,.38); } }
+  .st-vs { align-self: center; font-family: 'Dela Gothic One'; color: #ffcf3a; font-size: 16px; text-shadow: 0 2px 0 var(--sumi); }
+  html[data-lang="ko"] .st-vs { font-family: 'Black Han Sans','Dela Gothic One',sans-serif; }
+  /* えらんでいる方だけを大きく出す */
+  .slots { flex-direction: column; overflow: hidden; }
+  .slots .vs-mid { display: none; }
+  .slots[data-tab="0"] #slot1, .slots[data-tab="1"] #slot0 { display: none; }
+  .slots .slot { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* 向き・政策を押しやすく */
+  .dir { gap: 8px; }
+  .dir .btn { padding: 8px 14px; font-size: 20px; line-height: 1; border-radius: 12px; }
+  .pols { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .pol { min-height: 58px; padding: 8px 9px; }
+  .pol b { font-size: 14px; }
+  .pol i { font-size: 13px; padding: 1px 7px; }
+  .pol small { font-size: 12px; line-height: 1.35; margin-top: 2px; }
+  .sl-btns .btn { flex: 1 1 0; padding: 10px 12px; font-size: 15px; }
+  /* 上の帯を1段に */
+  #s-setup .bar:not(.bottom) { gap: 6px; }
+  #s-setup .bar .cls { flex: 1 1 0; width: 0; min-width: 0; }
+  #s-setup .bar .seg { padding: 6px 8px; font-size: 12px; }
+}
+/* 政策カード：説明の字を読みやすく（PCも） */
+.pol small { font-size: 11.5px; line-height: 1.35; }
+.pol.no { opacity: .45; }
+/* 試合中のボタンを押しやすく */
+.b-btns { gap: 8px; }
+.b-btns .btn { padding: 10px 16px; font-size: 15px; border-radius: 12px; min-width: 64px; }
+/* 検索：スマホではキーボードに隠れないよう、上に寄せる */
+@media (max-aspect-ratio: 1/1) {
+  #picker { align-items: flex-start; padding-top: max(10px, env(safe-area-inset-top)); }
+  #picker .sheet-in { max-height: calc(100dvh - 20px); }
+}
+/* 結果：ボタンを2列にまとめる */
+.res .row { flex-wrap: nowrap; gap: 8px; }
+.res .row .btn { flex: 1 1 0; min-width: 0; padding: 11px 8px; font-size: 15px; }
+.res .row .btn[hidden] { display: none; }
+.res .row.r-main .btn { font-size: 16px; padding: 13px 8px; }
+/* タイトルの説明：日本語は言葉の切れ目で折り返す */
+html[data-lang="ja"] .sub { word-break: keep-all; overflow-wrap: anywhere; }
+/* 録画しますか？ */
+#recq { z-index: 26; }
+.rq { padding: 18px 16px 16px; text-align: center; max-width: 420px; }
+.rq h3 { font-family: 'Dela Gothic One'; font-weight: 400; font-size: 24px; margin: 0 0 6px; }
+html[data-lang="ko"] .rq h3 { font-family: 'Black Han Sans','Dela Gothic One',sans-serif; }
+.rq .row { flex-wrap: nowrap; }
+.rq .row .btn { flex: 1 1 0; min-width: 0; padding: 14px 8px; }
+.rq .btn.pick { outline: 3px solid var(--gold); outline-offset: 2px; }
+/* 録画中の帯（動画には映らない） */
+.rec-bar { position: absolute; left: 50%; top: calc(58px + env(safe-area-inset-top)); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: rgba(20,15,11,.82); color: #fff; border-radius: 999px; padding: 5px 6px 5px 14px; font-size: 14px; white-space: nowrap; z-index: 5; }
+.rec-bar[hidden] { display: none; }
+.rec-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff3b30; animation: recBlink 1s steps(2) infinite; }
+@keyframes recBlink { 50% { opacity: .25; } }
+.rec-bar .btn { padding: 5px 12px; font-size: 13px; }
+/* 試合の動画 */
+#vidview { z-index: 25; background: rgba(15,11,8,.86); }
+#vv { display: block; margin: 0 auto; max-width: 100%; max-height: calc(100vh - 170px); max-height: calc(100dvh - 170px); border-radius: 10px; background: #000; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+#vidview .row { flex-wrap: nowrap; gap: 8px; }
+#vidview .row .btn { flex: 1 1 0; min-width: 0; padding: 11px 8px; font-size: 15px; }
+html[data-lang="ko"] .res .row .btn, html[data-lang="ko"] .rq .btn, html[data-lang="ko"] #vidview .btn { word-break: keep-all; overflow-wrap: anywhere; }

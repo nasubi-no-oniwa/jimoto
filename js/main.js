@@ -42,7 +42,8 @@
   JM.popText = popText; JM.areaText = areaText;
   const editable = i => (st.mode === 'local' && !(st.chal && i === 1)) || st.my === i;
   // ---------- 1つの枠を描く ----------
-  function renderSlot(i) {
+  function renderSlot(i) { renderSlot0(i); renderTabs(); }
+  function renderSlot0(i) {
     const el = $('slot' + i), s = st.slots[i], side = T('side' + i);
     R.freeIn(el);   // 前の絵のキャンバスを片づけてから描きなおす
     if (st.mode !== 'local' && i !== st.my && !st.reveal) {
@@ -80,7 +81,7 @@
       for (const k of s.cards) { const c = JM.POL[k].c; if (spent + c > JM.BASE_BUDGET) kfSet.add(k); spent += c; }
       for (const p of JM.POLICIES) {
         const on = s.cards.includes(p.k), can = on || JM.canAdd(s.cards, p.k, e.pop);
-        h += `<button class="pol ${on ? 'on' : ''} ${kfSet.has(p.k) ? 'kf' : ''}" data-pol="${i}" data-k="${p.k}" ${(!ed || !can) ? 'disabled' : ''}><i>${p.c}</i><b>${p.n}</b><small>${p.t}</small></button>`;
+        h += `<button class="pol ${on ? 'on' : ''} ${kfSet.has(p.k) ? 'kf' : ''} ${can ? '' : 'no'}" data-pol="${i}" data-k="${p.k}" ${!ed ? 'disabled' : ''} ${can ? '' : 'aria-disabled="true"'}><i>${p.c}</i><b>${p.n}</b><small>${p.t}</small></button>`;
       }
       h += `</div>`;
     }
@@ -96,6 +97,26 @@
     const rv = el.querySelector('[data-radar]'); if (rv && rv.getContext('2d')) { const c = rv.getContext('2d'); c.clearRect(0, 0, 300, 270); c.save(); c.scale(2, 2); R.radar(c, 75, 70, 48, e.st, usePol ? comp.add : null, { fs: 10 }); c.restore(); }
   }
   function renderSlots() { renderSlot(0); renderSlot(1); updateFight(); }
+  // スマホ縦：左右を上のつまみで切りかえる（2つ目を探して下までスクロールしなくてよいように）
+  function setTab(i) { st.tab = i; $('slots').dataset.tab = i; renderTabs(); const el = $('slot' + i); if (el) el.scrollTop = 0; }
+  JM.setTab = setTab;
+  function renderTabs() {
+    const box = $('side-tabs'); if (!box) return;
+    R.freeIn(box);
+    const one = i => {
+      const s = st.slots[i], hide = st.mode !== 'local' && i !== st.my && !st.reveal;
+      const nm = hide ? T(st.foeReady ? 'foe_ready' : 'foe_prep') : (s.e ? esc(s.e.dn) : T('tab_empty'));
+      return `<button class="stab s${i} ${st.tab === i ? 'on' : ''} ${!s.e && !hide ? 'empty' : ''}" data-tab="${i}"><canvas width="88" height="88" data-tabshape="${i}"></canvas><span class="st-t"><small>${T('side' + i)}</small><b>${nm}</b></span></button>`;
+    };
+    box.innerHTML = one(0) + '<span class="st-vs">VS</span>' + one(1);
+    for (let i = 0; i < 2; i++) {
+      const s = st.slots[i], cv = box.querySelector(`[data-tabshape="${i}"]`), hide = st.mode !== 'local' && i !== st.my && !st.reveal;
+      const c = cv && cv.getContext('2d'); if (!c) continue;
+      c.clearRect(0, 0, 88, 88);
+      if (s.parts && !hide) R.shapeIcon(c, s.parts, 44, 44, 70, s.dir, i, { facing: true, lw: 2 });
+      else { c.fillStyle = 'rgba(60,40,20,.25)'; c.font = '900 44px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', 44, 47); }
+    }
+  }
   function updateFight() {
     const b = $('btn-fight');
     const okc = i => st.slots[i].e && JM.inClass(st.cls, st.slots[i].e.pop);
@@ -159,13 +180,20 @@
     st.live = new JM.Match(a, b, d0, d1); st.liveT = -1.4; st.acc = 0; st.done = false; st.goSaid = false; st.slow = false;
     $('hn0').textContent = shortName(st.slots[0].e); $('hn1').textContent = shortName(st.slots[1].e);
     show('s-battle'); $('result').classList.remove('on'); R.fx = [];
+    st.recKey = st.result.digest + '|' + d0 + d1 + '|' + (a.pol.join(',')) + '|' + (b.pol.join(','));
+    if (st.recWant) {
+      st.recWant = false;
+      if (JM.Rec.start(st.recKey)) { st.recLive = true; recBar(); }
+      else { st.recLive = false; st.makingVid = false; toast(T('vid_nosup')); }
+    } else if (JM.Rec.recording()) { JM.Rec.cancel(); st.recLive = false; st.makingVid = false; }
+    recBar();
     call(T('call_ready'), 1.1); S().play('start'); S().bgm('battle');
     if (JM.Net && !fromNet) JM.Net.digest && 0;
     return st.result;
   }
   JM.startBattle = startBattle;
   let callT = null;
-  function call(t, sec) { const c = $('call'); c.innerHTML = t; c.classList.add('on'); clearTimeout(callT); if (sec) callT = setTimeout(() => c.classList.remove('on'), sec * 1000); }
+  function call(t, sec) { const c = $('call'); c.innerHTML = t; c.classList.add('on'); st.callTxt = t; clearTimeout(callT); if (sec) callT = setTimeout(() => { c.classList.remove('on'); st.callTxt = ''; }, sec * 1000); }
   function liveStep(dt) {
     const m = st.live; if (!m) return;
     st.liveT += dt;
@@ -206,7 +234,75 @@
       if (st.chal) { $('res-line').textContent = line + T('rec_ing'); JM.Chal.onResult(r.winner).then(t => { if (t) $('res-line').textContent = t; }); }
       $('btn-change').textContent = T(st.mode === 'local' ? (st.chal ? 'change_mine' : 'change_pair') : (st.mode === 'watch' ? 'back' : 'rematch_re'));
       $('result').classList.add('on');
+      if (st.recLive && JM.Rec.recording()) {
+        const k = st.recKey, making = st.makingVid; st.recLive = false; recBar();
+        JM.Rec.stop(b => { if (making) { st.makingVid = false; if (st.speedKeep) { st.speed = st.speedKeep; st.speedKeep = 0; $('btn-speed').textContent = '×' + st.speed; } } vidBtn(); if (b && making && st.recKey === k) openVid(); else if (!b && making) toast(T('vid_fail')); });
+      }
+      vidBtn();
     }, 1500);
+  }
+  // ---------- 試合の動画 ----------
+  // はっけよいの前に「録画しますか？」と聞く（録画できないブラウザでは聞かない）
+  function askRec(go) {
+    if (!JM.Rec.supported()) { st.recWant = false; go(); return; }
+    const q = $('recq'); q.classList.add('on');
+    const last = store('jm_rec') === '1';
+    $('rq-yes').classList.toggle('pick', last); $('rq-no').classList.toggle('pick', !last);
+    const done = v => { q.classList.remove('on'); store('jm_rec', v ? '1' : '0'); st.recWant = v; st.makingVid = false; S().play('ui'); go(); };
+    $('rq-yes').onclick = () => done(true); $('rq-no').onclick = () => done(false);
+  }
+  // 録画しなかった試合を、あとから動画にするときにかかる秒数（途中は2倍速、決着はスロー）
+  function vidSecs() {
+    const r = st.result; if (!r) return 0;
+    const sp = 2, end = r.t, slowS = r.endBy === 'break' ? Math.min(60, r.lastHit) * JM.DT : 0, lh = r.lastHit * JM.DT;
+    const before = Math.max(0, (r.endBy === 'break' ? lh - slowS : end)) / sp, after = r.endBy === 'break' ? Math.max(0, end - lh) / sp : 0;
+    return Math.ceil(1.4 + before + slowS / 0.22 + after + 0.9 + 1.5);
+  }
+  function vidBtn() {
+    const b = $('btn-vid'); if (!b) return;
+    if (!JM.Rec.supported()) { b.hidden = true; return; }
+    b.hidden = false;
+    const ready = JM.Rec.blob(st.recKey);
+    if (ready) { b.disabled = false; b.textContent = T('vid_post'); }
+    else if (JM.Rec.state() === 'stopping' && JM.Rec.key() === st.recKey) { b.disabled = true; b.textContent = T('vid_finishing'); }
+    else { b.disabled = false; b.textContent = T('vid_make', { s: vidSecs() }); }
+  }
+  // 録画中の帯（動画には映らない）
+  function recBar() {
+    const bar = $('rec-bar'); if (!bar) return;
+    const on = JM.Rec.recording();
+    bar.hidden = !on;
+    if (!on) return;
+    if (st.makingVid) {
+      const left = Math.max(1, Math.ceil(st.vidEnd - performance.now() / 1000));
+      $('rec-txt').textContent = T('vid_making', { s: left }); $('rec-cancel').hidden = false;
+    } else { $('rec-txt').textContent = T('rec_on'); $('rec-cancel').hidden = false; }
+  }
+  function makeVid() {
+    if (!JM.Rec.supported()) { toast(T('vid_nosup')); return; }
+    $('result').classList.remove('on');
+    st.makingVid = true; st.recWant = true; st.vidEnd = performance.now() / 1000 + vidSecs();
+    st.speedKeep = st.speed; st.speed = 2; $('btn-speed').textContent = '×2';
+    startBattle(true);
+  }
+  function openVid() {
+    const blob = JM.Rec.blob(st.recKey); if (!blob) { vidBtn(); return; }
+    const v = $('vv'), old = v.src; if (old && old.startsWith('blob:')) URL.revokeObjectURL(old);
+    v.src = URL.createObjectURL(blob); try { v.play(); } catch (e) {}
+    $('vv-note').textContent = !JM.Rec.isMp4() ? T('vid_webm') : JM.Rec.xSafe() ? '' : T('vid_maybe');
+    $('vidview').classList.add('on');
+  }
+  function vidFile() { const b = JM.Rec.blob(st.recKey); return b ? new File([b], 'jimoto-saikyo.' + JM.Rec.ext(), { type: b.type }) : null; }
+  function saveVid() {
+    const b = JM.Rec.blob(st.recKey); if (!b) return;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'jimoto-saikyo.' + JM.Rec.ext(); document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  async function shareVid() {
+    const f = vidFile(); if (!f) return;
+    try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: st.shareText }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    saveVid();
+    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(st.shareText), '_blank');
+    toast(T('vid_saved_paste'));
   }
   // ---------- 結果の画像 ----------
   // 結果画像：「勝利画像を出す」を押したときに作る（決着の瞬間の絵を使うので、試合の最後の状態から描く）
@@ -262,10 +358,15 @@
     if (scr && scr.id === 's-battle' && st.live) {
       liveStep(dt);
       const m = st.live;
-      try { R.draw(m, { names: [shortName(st.slots[0].e), shortName(st.slots[1].e)], dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 }); } catch (e) { if (!st.drawErr) { st.drawErr = 1; console.error(e); } }
+      const nms = [shortName(st.slots[0].e), shortName(st.slots[1].e)];
+      try { R.draw(m, { names: nms, dt: st.slow ? dt * 0.3 : dt, top: 46, bot: 10 }); } catch (e) { if (!st.drawErr) { st.drawErr = 1; console.error(e); } }
+      if (JM.Rec.recording()) { try { JM.Rec.frame(m, { names: nms, call: st.callTxt }); } catch (e) {} if (st.makingVid) recBar(); }
       for (let i = 0; i < 2; i++) { const r = (i ? m.B : m.A).ratio(); $('hg' + i).style.width = Math.max(0, Math.min(100, (r - 0) * 100)) + '%'; $('hv' + i).textContent = Math.round(r * 100) + '%'; }
       $('clock').textContent = Math.max(0, Math.ceil(JM.TMAX - m.t));
-    } else if (st.idle) { idleDraw(dt); }
+    } else {
+      if (JM.Rec.recording()) { JM.Rec.cancel(); st.recLive = false; st.makingVid = false; recBar(); }
+      if (st.idle) idleDraw(dt);
+    }
   }
   // タイトルの後ろ：ゆっくり戦っている
   function idleDraw(dt) {
@@ -301,13 +402,20 @@
       if (t.dataset.pick != null) openPicker(+t.dataset.pick);
       else if (t.dataset.rand != null) setSlot(+t.dataset.rand, D.random(st.cls));
       else if (t.dataset.rot != null) { const i = +t.dataset.rot, s = st.slots[i]; s.dir = (s.dir + (+t.dataset.d) + 8) % 8; renderSlot(i); saveSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); }
-      else if (t.dataset.pol != null) { const i = +t.dataset.pol, s = st.slots[i], k = t.dataset.k; if (s.cards.includes(k)) s.cards = s.cards.filter(x => x !== k); else if (JM.canAdd(s.cards, k, s.e.pop)) s.cards.push(k); renderSlot(i); saveSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); }
+      else if (t.dataset.pol != null) { const i = +t.dataset.pol, s = st.slots[i], k = t.dataset.k; if (s.cards.includes(k)) s.cards = s.cards.filter(x => x !== k); else if (JM.canAdd(s.cards, k, s.e.pop)) s.cards.push(k); else { toast(T(s.cards.length >= JM.MAXCARDS ? 'pol_full' : 'pol_nobudget', { m: JM.MAXCARDS })); return; } renderSlot(i); saveSlots(); if (st.mode !== 'local' && JM.Net) JM.Net.changed(); }
     });
+    $('side-tabs').onclick = ev => { const b = ev.target.closest('[data-tab]'); if (!b) return; S().play('ui'); setTab(+b.dataset.tab); };
     $('pk-q').oninput = () => { clearTimeout(st.sT); st.sT = setTimeout(runSearch, 120); };
     $('pk-close').onclick = () => $('picker').classList.remove('on');
     $('pk-rand').onclick = () => { $('picker').classList.remove('on'); setSlot(pickFor, D.random(st.cls)); };
     $('pk-list').onclick = ev => { const li = ev.target.closest('li[data-id]'); if (!li) return; S().play('ui'); $('picker').classList.remove('on'); setSlot(pickFor, D.byId.get(li.dataset.id)); };
-    $('btn-fight').onclick = () => { S().unlock && S().unlock(); if (st.mode === 'local') startBattle(); else if (JM.Net) JM.Net.ready(); };
+    $('btn-fight').onclick = () => { S().unlock && S().unlock(); if (st.mode === 'local') askRec(() => startBattle()); else if (JM.Net) askRec(() => JM.Net.ready()); };
+    $('btn-vid').onclick = () => { S().play('ui'); if (JM.Rec.blob(st.recKey)) openVid(); else if (JM.Rec.state() !== 'stopping') makeVid(); };
+    $('rec-cancel').onclick = () => { S().play('ui'); JM.Rec.cancel(); st.recLive = false; recBar(); if (st.makingVid) { st.makingVid = false; if (st.speedKeep) { st.speed = st.speedKeep; st.speedKeep = 0; $('btn-speed').textContent = '×' + st.speed; } const m = st.live; if (m && !m.over) { while (!m.over) { m.tick(); m.ev.length = 0; } } } };
+    $('vv-share').onclick = () => shareVid();
+    $('vv-save').onclick = () => saveVid();
+    $('vv-close').onclick = () => { $('vidview').classList.remove('on'); try { $('vv').pause(); } catch (e) {} };
+    $('vidview').onclick = ev => { if (ev.target.id === 'vidview') $('vv-close').onclick(); };
     $('btn-speed').onclick = () => { st.speed = st.speed === 1 ? 2 : st.speed === 2 ? 4 : 1; $('btn-speed').textContent = '×' + st.speed; };
     $('btn-skip').onclick = () => { const m = st.live; if (!m || m.over) return; while (!m.over) { m.tick(); m.ev.length = 0; } };
     $('btn-share').onclick = () => share();
@@ -322,7 +430,7 @@
     $('btn-join').onclick = () => { if (JM.Net) JM.Net.join($('in-name').value, $('in-code').value); };
   }
   function syncMode() { for (const b of document.querySelectorAll('.seg')) b.classList.toggle('on', b.dataset.mode === st.pol); $('cls-sel').value = st.cls; $('cls-sel').disabled = st.mode === 'watch' || (st.mode === 'net' && st.reveal) || !!st.rnd || !!st.chal; }
-  function openSetup() { syncMode(); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; if (JM.Chal) JM.Chal.header(); renderSlots(); S().bgm('title'); }
+  function openSetup() { syncMode(); setTab(st.mode !== 'local' && st.my >= 0 ? st.my : (st.tab || 0)); show('s-setup'); $('on-st').textContent = st.mode === 'local' ? '' : st.netStatus || ''; if (JM.Chal) JM.Chal.header(); renderSlots(); S().bgm('title'); }
   JM.openSetup = openSetup; JM.renderSlots = renderSlots; JM.show = show; JM.syncMode = syncMode;
   function toTitle() { QM.ended(); st.rnd = false; if (st.chal || st.mode !== 'local' || st.tmp) { st.chal = null; st.tmp = false; st.mode = 'local'; loadSlots(); } st.mode = 'local'; st.my = -1; st.reveal = true; st.live = null; if (JM.Chal) JM.Chal.mineSummary(); $('result').classList.remove('on'); show('s-title'); S().bgm('title'); if (!st.idle) newIdle(); }
   JM.toTitle = toTitle;
@@ -365,6 +473,7 @@
     $('snd-name').textContent = T(JM.mute && JM.mute() ? 'snd_off' : 'snd_on');
     $('loading').textContent = D.ready ? T('loaded_n', { n: fmt(D.list.length) }) : T(st.loadErr ? 'load_err2' : 'loading');
     if (onScreen('s-setup')) { renderSlots(); if (JM.Chal) JM.Chal.header(); }
+    vidBtn(); recBar();
   });
   // 地名の表示がかわったら（data.js が出す）、地名を出している画面を描きなおす
   document.addEventListener('namesrelabeled', () => { if (onScreen('s-setup')) renderSlots(); });

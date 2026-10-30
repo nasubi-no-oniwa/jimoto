@@ -62,6 +62,13 @@
     play(k, v) { if (FX[k]) FX[k](v == null ? 1 : v); },
     bgm(k) { bg.want = k === 'battle' ? 'bgm' : 'title'; bg.start(bg.want); },
   };
+  // 録画用：音をそのまま動画に入れる（消音にしていても、動画には音を入れる）
+  let recDest = null;
+  JM.S.recStream = function () {
+    const a = A(); if (!a || !a.createMediaStreamDestination) return null;
+    if (!recDest) { recDest = a.createMediaStreamDestination(); const g = a.createGain(); g.gain.value = 1; bus.connect(g); mus.connect(g); g.connect(recDest); }
+    return recDest.stream;
+  };
   JM.mute = v => { if (v != null) { muted = v; try { localStorage.setItem('jm_mute', v ? '1' : '0'); } catch (e) {} if (master) master.gain.value = v ? 0 : 1; } return muted; };
   window.addEventListener('pointerdown', () => JM.S.unlock(), { once: false, passive: true });
 })();
