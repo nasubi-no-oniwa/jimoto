@@ -348,3 +348,6 @@ html[data-lang="ko"] .rq h3 { font-family: 'Black Han Sans','Dela Gothic One',sa
 #vidview .row { flex-wrap: nowrap; gap: 8px; }
 #vidview .row .btn { flex: 1 1 0; min-width: 0; padding: 11px 8px; font-size: 15px; }
 html[data-lang="ko"] .res .row .btn, html[data-lang="ko"] .rq .btn, html[data-lang="ko"] #vidview .btn { word-break: keep-all; overflow-wrap: anywhere; }
+/* 試合の大きな文字：外国語は長いので、はみ出さないように小さめ・折り返し */
+.call { padding: 0 12px; overflow-wrap: anywhere; }
+html:not([data-lang="ja"]) .call { font-size: clamp(30px, 8vw, 72px); }
