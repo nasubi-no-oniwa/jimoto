@@ -1,6 +1,13 @@
 // =============================================
 //  地元の最強  画面と進行
 // =============================================
+
+// Xの投稿で引用するツイート（なすびのお庭の管理ページ quote/ で日本語・英語を貼りかえられる）
+var NQ=window.__nq||(window.__nq={q:{}});if(!NQ.f){NQ.f=1;fetch('https://ft-red-default-rtdb.asia-southeast1.firebasedatabase.app/xquote/g/jimoto.json').then(r=>r.json()).then(d=>{if(d&&typeof d==='object')NQ.q=d;}).catch(()=>{});}
+function quoteURL(){let l='';try{if(typeof lang==='string')l=lang;}catch(e){}if(!l)l=document.documentElement.lang||'ja';const u=(l.slice(0,2)==='ja'?NQ.q.ja:NQ.q.en)||'';return /^https:\/\/x\.com\/[A-Za-z0-9_]{1,15}\/status\/\d{5,25}$/.test(u)?u:'';}
+function xIntent(text,url){const q=quoteURL();return 'https://x.com/intent/post?text='+encodeURIComponent(q?text+'\n'+url:text)+'&url='+encodeURIComponent(q||url);}
+function xIntentT(text){const q=quoteURL();return 'https://x.com/intent/post?text='+encodeURIComponent(text)+(q?'&url='+encodeURIComponent(q):'');}
+function nqS(o){const q=quoteURL();if(!q||!o)return o;o=Object.assign({},o);o.text=(o.text||'')+(o.url?'\n'+o.url:'')+'\n'+q;delete o.url;return o;}
 (function () {
   const JM = window.JM, D = JM.D, R = JM.R;
   const T = (k, v) => I18N.t(k, v);
@@ -299,9 +306,9 @@
   }
   async function shareVid() {
     const f = vidFile(); if (!f) return;
-    try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], text: st.shareText }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share(nqS({ files: [f], text: st.shareText })); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
     saveVid();
-    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(st.shareText), '_blank');
+    window.open(xIntentT(st.shareText), '_blank');
     toast(T('vid_saved_paste'));
   }
   // ---------- 結果の画像 ----------
@@ -338,10 +345,10 @@
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     const file = new File([blob], 'jimoto.png', { type: 'image/png' });
     try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: st.shareText }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share(nqS({ files: [file], text: st.shareText })); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
     saveImg(blob);
-    const u = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(st.shareText);
+    const u = xIntentT(st.shareText);
     window.open(u, '_blank');
     toast(T('img_saved_paste'));
   }
